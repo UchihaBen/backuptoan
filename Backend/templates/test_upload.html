@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 100px;
+            background-color: #f9f9f9;
+        }
+        .hidden {
+            display: none;
+        }
+        #login-form {
+            margin-bottom: 20px;
+        }
+        #logout-btn {
+            background-color: #f44336;
+            margin-left: 10px;
+        }
+        #logout-btn:hover {
+            background-color: #d32f2f;
+        }
+        #token-display {
+            word-break: break-all;
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Upload API</h1>
+    
+    <div id="login-form">
+        <h2>Đăng nhập</h2>
+        <form id="login" onsubmit="login(event)">
+            <label for="username">Tên đăng nhập:</label>
+            <input type="text" id="username" name="username" required>
+            
+            <label for="password">Mật khẩu:</label>
+            <input type="password" id="password" name="password" required>
+            
+            <button type="submit">Đăng nhập</button>
+        </form>
+        <div id="token-display" class="hidden"></div>
+    </div>
+    
+    <div id="upload-form" class="hidden">
+        <h2>Upload tài liệu</h2>
+        <button id="logout-btn" onclick="logout()">Đăng xuất</button>
+        <form id="upload" onsubmit="uploadDocument(event)">
+            <label for="title">Tiêu đề:</label>
+            <input type="text" id="title" name="title" required>
+            
+            <label for="file">Tệp tài liệu (PDF, DOCX, TXT):</label>
+            <input type="file" id="file" name="file" accept=".pdf,.docx,.txt" required>
+            
+            <label for="chunkSize">Kích thước chunk:</label>
+            <input type="number" id="chunkSize" name="chunkSize" value="1000" min="100" max="2000" required>
+            
+            <label for="chunkOverlap">Độ chồng lấn:</label>
+            <input type="number" id="chunkOverlap" name="chunkOverlap" value="200" min="0" max="500" required>
+            
+            <button type="submit">Tải lên</button>
+        </form>
+    </div>
+    
+    <div id="result">
+        <h3>Kết quả:</h3>
+        <pre id="result-content"></pre>
+    </div>
+    
+    <script>
+        let token = localStorage.getItem('test_token');
+        const apiUrl = 'http://localhost:5000/api';
+        
+        // Kiểm tra token đã lưu
+        if (token) {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('upload-form').classList.remove('hidden');
+            document.getElementById('token-display').textContent = token;
+            document.getElementById('token-display').classList.remove('hidden');
+        }
+        
+        // Hàm đăng nhập
+        async function login(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch(`${apiUrl}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    token = data.token;
+                    localStorage.setItem('test_token', token);
+                    
+                    document.getElementById('result-content').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('login-form').classList.add('hidden');
+                    document.getElementById('upload-form').classList.remove('hidden');
+                    document.getElementById('token-display').textContent = token;
+                    document.getElementById('token-display').classList.remove('hidden');
+                } else {
+                    document.getElementById('result-content').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('result-content').textContent = `Lỗi: ${error.message}`;
+            }
+        }
+        
+        // Hàm đăng xuất
+        function logout() {
+            localStorage.removeItem('test_token');
+            token = null;
+            document.getElementById('login-form').classList.remove('hidden');
+            document.getElementById('upload-form').classList.add('hidden');
+            document.getElementById('token-display').classList.add('hidden');
+            document.getElementById('result-content').textContent = 'Đã đăng xuất.';
+        }
+        
+        // Hàm upload tài liệu
+        async function uploadDocument(event) {
+            event.preventDefault();
+            
+            const title = document.getElementById('title').value;
+            const file = document.getElementById('file').files[0];
+            const chunkSize = document.getElementById('chunkSize').value;
+            const chunkOverlap = document.getElementById('chunkOverlap').value;
+            
+            if (!file) {
+                document.getElementById('result-content').textContent = 'Vui lòng chọn file để tải lên.';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('file', file);
+            formData.append('chunkSize', chunkSize);
+            formData.append('chunkOverlap', chunkOverlap);
+            
+            try {
+                document.getElementById('result-content').textContent = 'Đang tải lên...';
+                
+                const response = await fetch(`${apiUrl}/documents/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = await response.text();
+                }
+                
+                document.getElementById('result-content').textContent = JSON.stringify({
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data
+                }, null, 2);
+                
+            } catch (error) {
+                document.getElementById('result-content').textContent = `Lỗi: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html> 

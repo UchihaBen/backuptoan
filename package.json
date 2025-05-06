@@ -1,0 +1,20 @@
+{
+  "name": "giasutoan",
+  "version": "1.0.0",
+  "description": "Educational tutoring platform with RAG capabilities",
+  "main": "index.js",
+  "scripts": {
+    "build": "cd Frontend && npm install && npm run build",
+    "start": "cd Frontend && npm start",
+    "preview": "cd Frontend && npx vite preview --host 0.0.0.0 --port $PORT",
+    "dev:frontend": "cd Frontend && npm run dev",
+    "dev:backend": "cd Backend && python app.py",
+    "dev:api": "cd Backend && python -m uvicorn API_Rag:app --host 0.0.0.0 --port 8000 --reload"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "serve": "^14.2.4"
+  }
+}
