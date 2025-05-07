@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager
 import os
 from datetime import timedelta
 from routes.chat import chat
@@ -10,9 +10,6 @@ from routes.quiz import quiz  # Import quiz blueprint
 from routes.documents import documents_bp  # Import documents blueprint mới
 from middleware.auth_middleware import token_required, token_required_request, admin_required, admin_required_request
 # Import các routes khác khi bạn tạo thêm
-import time
-from sentence_transformers import SentenceTransformer
-from mongoDB.config import db  # Import db từ config.py
 
 app = Flask(__name__)
 
@@ -87,23 +84,6 @@ def reinitialize_database():
             return jsonify({"error": str(e)}), 500
     else:
         return jsonify({"error": "Access denied"}), 403
-
-# Initialize SentenceTransformer with retry logic
-def load_model(max_retries=3, retry_delay=5):
-    for attempt in range(max_retries):
-        try:
-            model = SentenceTransformer('intfloat/multilingual-e5-large')
-            return model
-        except Exception as e:
-            if attempt < max_retries - 1:
-                print(f"Failed to load model (attempt {attempt + 1}/{max_retries}): {str(e)}")
-                print(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                print(f"Failed to load model after {max_retries} attempts: {str(e)}")
-                raise
-
-model = load_model()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000) 

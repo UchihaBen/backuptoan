@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-sentence-transformers
-chromadb
-pymongo
-python-dotenv
-pydantic 

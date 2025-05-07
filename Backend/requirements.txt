@@ -1,6 +1,6 @@
 flask==2.2.3
 flask-cors==3.0.10
-pymongo==4.6.1
+pymongo==4.3.3
 sentence-transformers==2.6.0
 ChromaDB==0.4.22
 PyPDF2==3.0.1
@@ -15,6 +15,7 @@ pyjwt==2.8.0
 bcrypt==4.0.1
 pdfplumber==0.10.3
 flask_jwt_extended==4.5.3
+bson==0.5.10
 fastapi==0.110.0
 uvicorn==0.27.0
 pydantic==2.5.2

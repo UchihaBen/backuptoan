@@ -10,11 +10,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://backend:5000',
+        target: 'http://localhost:5000',
         changeOrigin: true,
       },
       '/rag': {
-        target: 'http://rag:8000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/rag/, '')
       }
