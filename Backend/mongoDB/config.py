@@ -7,7 +7,8 @@ import os
 load_dotenv()
 
 # Lấy thông tin kết nối từ .env hoặc giá trị mặc định
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+# MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://thanhlct1423:Thanh01042003@giasutoan.mjwwhvn.mongodb.net/?retryWrites=true&w=majority&appName=GiaSuToan")
 DB_NAME = os.getenv("DB_NAME", "ChatGiaSu")
 
 try:

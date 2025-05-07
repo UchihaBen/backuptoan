@@ -4,6 +4,9 @@ from sentence_transformers import SentenceTransformer
 from mongoDB.config import chunks_collection
 from bson import ObjectId
 import logging
+from typing import List, Dict, Any
+import numpy as np
+import time
 
 # Thiết lập logging
 logging.basicConfig(level=logging.INFO)
@@ -14,10 +17,32 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "chroma_db")
 MODEL_NAME = "intfloat/multilingual-e5-large"
 
-# Khởi tạo model và ChromaDB
-sentence_transformer = SentenceTransformer(MODEL_NAME)
-chroma_client = chromadb.PersistentClient(path=DB_PATH)
-collection = chroma_client.get_or_create_collection(name="my_collection")
+# Khởi tạo model với retry logic
+def load_model(max_retries=3, retry_delay=5):
+    for attempt in range(max_retries):
+        try:
+            model = SentenceTransformer(MODEL_NAME)
+            return model
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"Failed to load model (attempt {attempt + 1}/{max_retries}): {str(e)}")
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                logger.error(f"Failed to load model after {max_retries} attempts: {str(e)}")
+                raise
+
+try:
+    sentence_transformer = load_model()
+except Exception as e:
+    logger.error(f"⚠️ Lỗi khi tải model {MODEL_NAME}: {e}")
+
+# Khởi tạo ChromaDB client
+try:
+    chroma_client = chromadb.PersistentClient(path=DB_PATH)
+    collection = chroma_client.get_or_create_collection(name="my_collection")
+except Exception as e:
+    logger.error(f"⚠️ Lỗi khi kết nối ChromaDB: {e}")
 
 def embed_document_chunks(document_id):
     """

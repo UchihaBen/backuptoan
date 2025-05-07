@@ -1,14 +1,25 @@
 import os
 import chromadb
 import fastapi
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 import base64
 from PIL import Image
 import io
+import uuid
+from datetime import datetime
+import time
+import pandas as pd
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image as XLImage
+from openpyxl.utils import get_column_letter
+import shutil
+import json
+import openpyxl.styles
 # 🔐 Đặt API key của Gemini từ biến môi trường thay vì hardcode (bảo mật hơn)
 GENMINI_API_KEY = "AIzaSyAqX5bkYluS_QKYSILRVCJHvY6KpSy2-ds"
 genai.configure(api_key=GENMINI_API_KEY)
@@ -52,6 +63,10 @@ class GradeRequest(BaseModel):
 # Tạo class TopicRequest cho API tạo câu hỏi từ admin
 class TopicRequest(BaseModel):
     topic: str
+
+# Định nghĩa model cho dữ liệu export Excel
+class ExcelExportRequest(BaseModel):
+    results: list
 
 def search_similar_chunks(question, top_k=3):
     try:
@@ -512,16 +527,66 @@ def Grade_math_paper(student_image_path, answer_key, model_name='gemini-2.0-flas
     # Function to encode image to base64
     def encode_image(image_path):
         try:
-            with open(image_path, "rb") as image_file:
-                return base64.b64encode(image_file.read()).decode('utf-8')
+            # Chuẩn hóa đường dẫn
+            image_path = os.path.normpath(image_path)
+            print(f"Đang đọc file: {image_path}")
+            
+            # In thông tin về đường dẫn để debug
+            abs_path = os.path.abspath(image_path)
+            print(f"Đường dẫn tuyệt đối: {abs_path}")
+            
+            # Kiểm tra thư mục chứa file có tồn tại không
+            parent_dir = os.path.dirname(image_path)
+            if not os.path.exists(parent_dir):
+                print(f"Thư mục cha không tồn tại: {parent_dir}")
+                return None
+            
+            # Kiểm tra file có tồn tại không
+            if not os.path.exists(image_path):
+                print(f"File không tồn tại: {image_path}")
+                # Đợi một chút để đảm bảo file system đã cập nhật
+                time.sleep(2)
+                # Kiểm tra lại
+                if not os.path.exists(image_path):
+                    print(f"File vẫn không tồn tại sau khi đợi: {image_path}")
+                    return None
+                print(f"File đã tồn tại sau khi đợi: {image_path}")
+            
+            # Kiểm tra kích thước file
+            file_size = os.path.getsize(image_path)
+            print(f"Kích thước file: {file_size} bytes")
+            
+            if file_size == 0:
+                print(f"File rỗng (0 bytes): {image_path}")
+                time.sleep(2)  # Đợi lâu hơn để file có thể được ghi đầy đủ
+                file_size = os.path.getsize(image_path)
+                if file_size == 0:
+                    print(f"File vẫn rỗng sau khi đợi: {image_path}")
+                    return None
+                print(f"File đã có dữ liệu sau khi đợi: {image_path}, kích thước: {file_size} bytes")
+            
+            # Đọc file với try/except riêng để dễ debug
+            try:
+                with open(image_path, "rb") as image_file:
+                    file_content = image_file.read()
+                    if not file_content:
+                        print(f"Đọc được file nhưng nội dung rỗng: {image_path}")
+                        return None
+                    encoded = base64.b64encode(file_content).decode('utf-8')
+                    print(f"Đã mã hóa file thành công: {image_path} ({len(encoded)} ký tự)")
+                    return encoded
+            except Exception as read_error:
+                print(f"Lỗi khi đọc file: {read_error}")
+                return None
+            
         except Exception as e:
-            print(f"Error encoding image: {e}")
+            print(f"Lỗi khi xử lý file: {e}")
             return None
     
     # Process student image
     student_image_b64 = encode_image(student_image_path)
     if not student_image_b64:
-        return "❌ Failed to process student's paper image."
+        return f"❌ Failed to process student's paper image. Path: {student_image_path}"
     
     # Process answer key - check if it's an image path or text
     is_answer_key_image = os.path.isfile(answer_key) if isinstance(answer_key, str) else False
@@ -531,7 +596,7 @@ def Grade_math_paper(student_image_path, answer_key, model_name='gemini-2.0-flas
     if is_answer_key_image:
         answer_key_b64 = encode_image(answer_key)
         if not answer_key_b64:
-            return "❌ Failed to process answer key image."
+            return f"❌ Failed to process answer key image. Path: {answer_key}"
     else:
         answer_key_content = answer_key
     
@@ -546,11 +611,12 @@ def Grade_math_paper(student_image_path, answer_key, model_name='gemini-2.0-flas
         Bạn là một giáo viên toán giàu kinh nghiệm, chấm điểm bài làm viết tay của học sinh theo biểu điểm cho sẵn một cách công bằng, chính xác và chi tiết.
 
         ## 📝 Nhiệm vụ
-        1. Phân tích kỹ hình ảnh bài làm viết tay của học sinh
-        2. So sánh với đáp án và biểu điểm được cung cấp
-        3. Chấm điểm chi tiết từng câu, từng ý
-        4. Nêu rõ lỗi sai và thiếu sót (nếu có)
-        5. Đề xuất hướng cải thiện
+        1. Nếu ảnh bài làm của sinh viên không liên quan đến bài làm thì chỉ chả về duy nhất là bài làm lạc đề
+        2. Phân tích kỹ hình ảnh bài làm viết tay của học sinh
+        3. So sánh với đáp án và biểu điểm được cung cấp
+        4. Chấm điểm chi tiết từng câu, từng ý
+        5. Nêu rõ lỗi sai và thiếu sót (nếu có)
+        6. Đề xuất hướng cải thiện
 
         ## 🎯 Yêu cầu kết quả
         1. **Điểm số cụ thể** cho từng câu và tổng điểm
@@ -561,7 +627,7 @@ def Grade_math_paper(student_image_path, answer_key, model_name='gemini-2.0-flas
         3. **Nhận xét tổng quát** về bài làm, ưu điểm và nhược điểm
         4. **Đề xuất cụ thể** để học sinh tiến bộ
 
-        ## 📋 Trình bày kết quả
+        ## 📋 Trình bày kết quả(Lưu ý chỉ trình bày kết quả nếu như bài làm của sinh viên liên quan đề đề bài.Nếu không thì bỏ qua phần này)
         Trả lời theo cấu trúc sau:
         ```
         # KẾT QUẢ CHẤM ĐIỂM
@@ -799,6 +865,265 @@ async def search_test(request: QuestionRequest):
     except Exception as e:
         print(f"⚠️ Lỗi khi thực hiện search-test: {str(e)}")
         return {"error": str(e)}
+
+# Đảm bảo thư mục uploads tồn tại
+UPLOAD_FOLDER = "uploads"
+MATH_PAPERS_FOLDER = os.path.join(UPLOAD_FOLDER, "math_papers")
+
+# Đảm bảo thư mục tồn tại khi khởi động ứng dụng
+try:
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+        print(f"Đã tạo thư mục gốc: {UPLOAD_FOLDER}")
+    
+    if not os.path.exists(MATH_PAPERS_FOLDER):
+        os.makedirs(MATH_PAPERS_FOLDER)
+        print(f"Đã tạo thư mục lưu ảnh: {MATH_PAPERS_FOLDER}")
+    else:
+        print(f"Thư mục đã tồn tại: {MATH_PAPERS_FOLDER}")
+        # Đếm số file trong thư mục
+        file_count = len([f for f in os.listdir(MATH_PAPERS_FOLDER) if os.path.isfile(os.path.join(MATH_PAPERS_FOLDER, f))])
+        print(f"Số lượng file hiện có: {file_count}")
+except Exception as init_error:
+    print(f"⚠️ Lỗi khi tạo thư mục ban đầu: {init_error}")
+
+@app.post("/upload_image")
+async def upload_image(file: UploadFile = File(...)):
+    """
+    API endpoint để upload ảnh và lưu vào thư mục cố định
+    """
+    try:
+        # Giữ nguyên tên file gốc
+        original_filename = file.filename
+        file_extension = original_filename.split(".")[-1] if "." in original_filename else "jpg"
+        
+        # Sử dụng thư mục cố định không phân chia theo ngày
+        relative_folder = MATH_PAPERS_FOLDER
+        
+        # Đảm bảo thư mục tồn tại với đầy đủ quyền truy cập
+        try:
+            if not os.path.exists(relative_folder):
+                print(f"Tạo thư mục: {relative_folder}")
+                os.makedirs(relative_folder, exist_ok=True)
+                # Đợi để đảm bảo thư mục được tạo đầy đủ
+                time.sleep(1)
+                
+            # Kiểm tra lại thư mục đã tồn tại chưa
+            if not os.path.exists(relative_folder):
+                print(f"Không thể tạo thư mục: {relative_folder}")
+                return {"success": False, "error": f"Không thể tạo thư mục: {relative_folder}"}
+        except Exception as folder_error:
+            print(f"Lỗi khi tạo/kiểm tra thư mục: {folder_error}")
+            return {"success": False, "error": f"Lỗi khi tạo thư mục: {str(folder_error)}"}
+        
+        # Đường dẫn tương đối của file
+        relative_path = os.path.join(relative_folder, original_filename)
+        
+        # Kiểm tra xem file đã tồn tại chưa
+        file_exists = os.path.exists(relative_path)
+        
+        # Lưu file với xử lý lỗi chi tiết
+        content = await file.read()
+        if not content:
+            return {"success": False, "error": "File rỗng hoặc không đọc được nội dung"}
+            
+        # Lưu file
+        with open(relative_path, "wb") as buffer:
+            buffer.write(content)
+            
+        # Kiểm tra file đã được lưu thành công chưa
+        if not os.path.exists(relative_path) or os.path.getsize(relative_path) == 0:
+            time.sleep(1)  # Đợi một chút cho hệ thống file
+            if not os.path.exists(relative_path) or os.path.getsize(relative_path) == 0:
+                return {"success": False, "error": "File không được lưu thành công"}
+        
+        print(f"Đã lưu file thành công tại: {relative_path}")
+        # Trả về đường dẫn tương đối và thông tin về việc ghi đè
+        return {
+            "success": True, 
+            "file_path": relative_path,
+            "file_exists": file_exists,
+            "original_filename": original_filename
+        }
+    except Exception as e:
+        print(f"Lỗi khi upload_image: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/delete_image")
+async def delete_image(file_data: dict):
+    """
+    API endpoint để xóa file ảnh từ thư mục uploads
+    """
+    try:
+        file_path = file_data.get("file_path")
+        if not file_path:
+            return {"success": False, "error": "Thiếu đường dẫn file"}
+        
+        # Kiểm tra xem đường dẫn có hợp lệ không
+        if not os.path.exists(file_path):
+            return {"success": False, "error": f"File không tồn tại: {file_path}"}
+        
+        # Kiểm tra xem file có thuộc thư mục uploads không
+        if "uploads" not in file_path:
+            return {"success": False, "error": "Không được phép xóa file bên ngoài thư mục uploads"}
+        
+        # Xóa file
+        os.remove(file_path)
+        return {"success": True, "message": f"Đã xóa file: {file_path}"}
+    except Exception as e:
+        print(f"⚠️ Lỗi khi xóa file: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/verify_file")
+async def verify_file(file_data: dict):
+    """
+    API endpoint để kiểm tra xem file tồn tại và có nội dung không
+    """
+    try:
+        file_path = file_data.get("file_path")
+        if not file_path:
+            return {"success": False, "error": "Thiếu đường dẫn file"}
+        
+        # Chuẩn hóa đường dẫn
+        file_path = os.path.normpath(file_path)
+        
+        # Kiểm tra file tồn tại
+        if not os.path.exists(file_path):
+            return {"success": False, "exists": False, "error": f"File không tồn tại: {file_path}"}
+        
+        # Kiểm tra file có dữ liệu
+        file_size = os.path.getsize(file_path)
+        if file_size == 0:
+            return {"success": False, "exists": True, "size": 0, "error": "File rỗng (0 byte)"}
+        
+        # Trả về thông tin chi tiết về file
+        return {
+            "success": True,
+            "exists": True,
+            "size": file_size,
+            "path": file_path,
+            "last_modified": os.path.getmtime(file_path)
+        }
+    except Exception as e:
+        print(f"⚠️ Lỗi khi xác minh file: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/export_excel")
+async def export_excel(request: ExcelExportRequest):
+    """
+    API endpoint để tạo file Excel từ kết quả chấm bài
+    """
+    try:
+        print(f"Nhận yêu cầu xuất Excel với {len(request.results)} kết quả")
+        
+        # Tạo thư mục tạm để lưu file Excel
+        temp_dir = os.path.join(UPLOAD_FOLDER, "temp_excel")
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        # Tạo workbook mới
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Kết quả chấm điểm"
+        
+        # Thêm tiêu đề các cột
+        headers = ["STT", "Họ và tên", "Lớp", "Điểm", "Nhận xét chi tiết", "Hình ảnh bài làm"]
+        for col_num, header in enumerate(headers, 1):
+            col_letter = get_column_letter(col_num)
+            ws[f"{col_letter}1"] = header
+            ws.column_dimensions[col_letter].width = 15  # Độ rộng cột mặc định
+        
+        # Thiết lập độ rộng cột cụ thể
+        ws.column_dimensions['A'].width = 5   # STT
+        ws.column_dimensions['B'].width = 25  # Họ và tên
+        ws.column_dimensions['C'].width = 10  # Lớp
+        ws.column_dimensions['D'].width = 10  # Điểm
+        ws.column_dimensions['E'].width = 100 # Nhận xét
+        ws.column_dimensions['F'].width = 50  # Hình ảnh bài làm
+        
+        # Thêm dữ liệu vào bảng
+        for idx, item in enumerate(request.results, 1):
+            row_num = idx + 1  # +1 vì hàng 1 là header
+            
+            try:
+                # Điền dữ liệu cơ bản
+                ws[f"A{row_num}"] = idx  # STT
+                ws[f"B{row_num}"] = item.get('studentName', 'Không xác định')
+                ws[f"C{row_num}"] = item.get('studentClass', 'Không xác định')
+                ws[f"D{row_num}"] = item.get('totalScore', 'Không xác định')
+                
+                # Thêm nhận xét chi tiết - cắt bớt nếu quá dài
+                full_result = item.get('fullResult', 'Không có dữ liệu')
+                if len(full_result) > 32700:  # Giới hạn ký tự của Excel
+                    full_result = full_result[:32700] + "... (đã cắt bớt)"
+                ws[f"E{row_num}"] = full_result
+                
+                # Thêm đường dẫn hình ảnh
+                image_path = item.get('imagePath', '')
+                if image_path:
+                    # Chuyển đường dẫn tương đối thành đường dẫn đầy đủ
+                    full_image_path = os.path.join(MATH_PAPERS_FOLDER, os.path.basename(image_path))
+                    if os.path.exists(full_image_path):
+                        try:
+                            # Tạo đối tượng hình ảnh từ file
+                            img = XLImage(full_image_path)
+                            
+                            # Điều chỉnh kích thước ảnh nếu cần
+                            # Giữ tỷ lệ khung hình nhưng giới hạn kích thước tối đa
+                            max_width = 200
+                            max_height = 200
+                            
+                            # Tính toán kích thước mới giữ nguyên tỷ lệ
+                            if img.width > max_width or img.height > max_height:
+                                ratio = min(max_width/img.width, max_height/img.height)
+                                img.width = int(img.width * ratio)
+                                img.height = int(img.height * ratio)
+                            
+                            # Thêm ảnh vào ô F
+                            ws.add_image(img, f"F{row_num}")
+                            
+                            # Điều chỉnh chiều cao hàng để hiển thị ảnh
+                            ws.row_dimensions[row_num].height = max(75, img.height * 0.75)
+                            
+                            # Thêm đường dẫn tương đối vào ô G (ẩn) để tham chiếu
+                            ws[f"G{row_num}"] = os.path.basename(image_path)
+                        except Exception as img_error:
+                            print(f"Lỗi khi thêm ảnh vào Excel: {img_error}")
+                            ws[f"F{row_num}"] = "Lỗi khi thêm ảnh"
+                    else:
+                        ws[f"F{row_num}"] = "Không tìm thấy hình ảnh"
+                else:
+                    ws[f"F{row_num}"] = "Không có hình ảnh"
+                
+                # Thiết lập wrap text cho cột nhận xét
+                cell = ws[f"E{row_num}"]
+                cell.alignment = openpyxl.styles.Alignment(wrap_text=True)
+                
+            except Exception as item_error:
+                print(f"Lỗi khi thêm dòng {idx}: {item_error}")
+                ws[f"E{row_num}"] = f"Lỗi khi xử lý dữ liệu: {str(item_error)}"
+        
+        # Tạo tên file Excel
+        excel_filename = f"ket_qua_cham_diem_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        excel_path = os.path.join(temp_dir, excel_filename)
+        
+        # Lưu workbook
+        try:
+            wb.save(excel_path)
+            print(f"Đã lưu file Excel tại: {excel_path}")
+        except Exception as save_error:
+            print(f"Lỗi khi lưu file Excel: {save_error}")
+            return {"success": False, "error": f"Lỗi khi lưu file: {str(save_error)}"}
+        
+        # Trả về file Excel
+        return FileResponse(
+            path=excel_path,
+            filename=excel_filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+    except Exception as e:
+        print(f"⚠️ Lỗi khi tạo file Excel: {e}")
+        return {"success": False, "error": str(e)}
 
 # Chạy serve
 if __name__ == "__main__":
