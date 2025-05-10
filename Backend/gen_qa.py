@@ -1,4 +1,4 @@
-import os
+﻿import os
 import chromadb
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
@@ -13,7 +13,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "chroma_db")
 
 
-MODEL_NAME = "intfloat/multilingual-e5-large"
+MODEL_NAME = "intfloat/multilingual-e5-base"
 sentence_ef = SentenceTransformer(MODEL_NAME)
 chroma_client = chromadb.PersistentClient(path=DB_PATH)
 collection = chroma_client.get_or_create_collection(name="my_collection")
@@ -34,78 +34,78 @@ def generate_answer_with_genmini(question, context, image_paths=None):
 
         input_parts = [
     f"""
-    # Hướng Dẫn Tạo Câu Hỏi Trắc Nghiệm Toán Học Thông Minh
+    # HÆ°á»›ng Dáº«n Táº¡o CÃ¢u Há»i Tráº¯c Nghiá»‡m ToÃ¡n Há»c ThÃ´ng Minh
 
-    ## 🤖 Vai Trò
-    Bạn là một trợ lý AI chuyên tạo câu hỏi trắc nghiệm Toán học.
+    ## ðŸ¤– Vai TrÃ²
+    Báº¡n lÃ  má»™t trá»£ lÃ½ AI chuyÃªn táº¡o cÃ¢u há»i tráº¯c nghiá»‡m ToÃ¡n há»c.
 
-    ## 📚 Đầu Vào
-    📖 Thông tin từ sách giáo khoa:
+    ## ðŸ“š Äáº§u VÃ o
+    ðŸ“– ThÃ´ng tin tá»« sÃ¡ch giÃ¡o khoa:
     """ + context + """
 
-    ❓ Câu hỏi của học sinh:
+    â“ CÃ¢u há»i cá»§a há»c sinh:
     """ + question + """
 
-    ## 🎯 Nguyên Tắc Tạo Câu Hỏi
-    1. Yêu Cầu Cơ Bản:
-       - Liên quan trực tiếp đến chủ đề Câu hỏi của học sinh.
-       - Xây dựng dựa trên thông tin từ sách giáo khoa.
-       - Có độ khó đa dạng
+    ## ðŸŽ¯ NguyÃªn Táº¯c Táº¡o CÃ¢u Há»i
+    1. YÃªu Cáº§u CÆ¡ Báº£n:
+       - LiÃªn quan trá»±c tiáº¿p Ä‘áº¿n chá»§ Ä‘á» CÃ¢u há»i cá»§a há»c sinh.
+       - XÃ¢y dá»±ng dá»±a trÃªn thÃ´ng tin tá»« sÃ¡ch giÃ¡o khoa.
+       - CÃ³ Ä‘á»™ khÃ³ Ä‘a dáº¡ng
 
-    2. Chiến Lược Chi Tiết
-       - Phân tích sâu câu hỏi của học sinh và thông tin từ sách giáo khoa.
-       - Xác định từ khóa chính
-       - Tạo câu hỏi từ nhận biết đến vận dụng cao
+    2. Chiáº¿n LÆ°á»£c Chi Tiáº¿t
+       - PhÃ¢n tÃ­ch sÃ¢u cÃ¢u há»i cá»§a há»c sinh vÃ  thÃ´ng tin tá»« sÃ¡ch giÃ¡o khoa.
+       - XÃ¡c Ä‘á»‹nh tá»« khÃ³a chÃ­nh
+       - Táº¡o cÃ¢u há»i tá»« nháº­n biáº¿t Ä‘áº¿n váº­n dá»¥ng cao
 
-    ## 🧮 Quy Tắc Viết Công Thức Toán Học
-    ### Nguyên Tắc Bắt Buộc:
-    1. Công Thức Inline:
-       - Luôn sử dụng \( ... \)
-       - Ví dụ: \( x^2 + y^2 = z^2 \)
-       - KHÔNG được dùng $ ... $ hay [ ... ]
+    ## ðŸ§® Quy Táº¯c Viáº¿t CÃ´ng Thá»©c ToÃ¡n Há»c
+    ### NguyÃªn Táº¯c Báº¯t Buá»™c:
+    1. CÃ´ng Thá»©c Inline:
+       - LuÃ´n sá»­ dá»¥ng \( ... \)
+       - VÃ­ dá»¥: \( x^2 + y^2 = z^2 \)
+       - KHÃ”NG Ä‘Æ°á»£c dÃ¹ng $ ... $ hay [ ... ]
 
-    2. Công Thức Block:
-       - Luôn sử dụng $$ ... $$
-       - Ví dụ: 
+    2. CÃ´ng Thá»©c Block:
+       - LuÃ´n sá»­ dá»¥ng $$ ... $$
+       - VÃ­ dá»¥: 
          $$\int_{a}^{b} f(x) dx$$
-       - Xuống dòng trước và sau công thức
-       - KHÔNG được dùng \[ ... \]
+       - Xuá»‘ng dÃ²ng trÆ°á»›c vÃ  sau cÃ´ng thá»©c
+       - KHÃ”NG Ä‘Æ°á»£c dÃ¹ng \[ ... \]
 
-    3. Các Lưu Ý Quan Trọng:
-       - Sử dụng ký tự toán học gốc
-       - Không thêm khoảng trắng thừa
-       - Sử dụng các lệnh LaTeX chuẩn
-       - Ưu tiên các hàm toán học chuẩn: \sin, \cos, \lim, \log, v.v.
+    3. CÃ¡c LÆ°u Ã Quan Trá»ng:
+       - Sá»­ dá»¥ng kÃ½ tá»± toÃ¡n há»c gá»‘c
+       - KhÃ´ng thÃªm khoáº£ng tráº¯ng thá»«a
+       - Sá»­ dá»¥ng cÃ¡c lá»‡nh LaTeX chuáº©n
+       - Æ¯u tiÃªn cÃ¡c hÃ m toÃ¡n há»c chuáº©n: \sin, \cos, \lim, \log, v.v.
 
-    ## 📝 Cấu Trúc Câu Hỏi
-    - Tổng: **10 câu hỏi**
-    - Mỗi câu: 4 đáp án (A, B, C, D)
-    - Chỉ 1 đáp án đúng
+    ## ðŸ“ Cáº¥u TrÃºc CÃ¢u Há»i
+    - Tá»•ng: **10 cÃ¢u há»i**
+    - Má»—i cÃ¢u: 4 Ä‘Ã¡p Ã¡n (A, B, C, D)
+    - Chá»‰ 1 Ä‘Ã¡p Ã¡n Ä‘Ãºng
 
-    ## 🔍 Định Dạng JSON
+    ## ðŸ” Äá»‹nh Dáº¡ng JSON
     ```json
     {
       "questions": [
         {
-          "question": "Nội dung câu hỏi",
+          "question": "Ná»™i dung cÃ¢u há»i",
           "options": {
-            "A": "Đáp án A",
-            "B": "Đáp án B", 
-            "C": "Đáp án C",
-            "D": "Đáp án D"
+            "A": "ÄÃ¡p Ã¡n A",
+            "B": "ÄÃ¡p Ã¡n B", 
+            "C": "ÄÃ¡p Ã¡n C",
+            "D": "ÄÃ¡p Ã¡n D"
           },
           "answer": "B",
-          "solution": "Giải thích chi tiết"
+          "solution": "Giáº£i thÃ­ch chi tiáº¿t"
         }
       ]
     }
     ```
 
-    ## ⚠️ Lưu Ý QUAN TRỌNG
-    - Nếu không đủ thông tin: Trả về JSON rỗng
-    - Ưu tiên thuật ngữ từ text chunk
-    - Tránh câu hỏi quá khó/dễ
-    - LUÔN LUÔN tuân thủ quy tắc viết công thức toán học
+    ## âš ï¸ LÆ°u Ã QUAN TRá»ŒNG
+    - Náº¿u khÃ´ng Ä‘á»§ thÃ´ng tin: Tráº£ vá» JSON rá»—ng
+    - Æ¯u tiÃªn thuáº­t ngá»¯ tá»« text chunk
+    - TrÃ¡nh cÃ¢u há»i quÃ¡ khÃ³/dá»…
+    - LUÃ”N LUÃ”N tuÃ¢n thá»§ quy táº¯c viáº¿t cÃ´ng thá»©c toÃ¡n há»c
     """
 ]
 
@@ -116,16 +116,16 @@ def generate_answer_with_genmini(question, context, image_paths=None):
                     input_parts.append(PILImage.open(img_path))
 
         response = model_gen.generate_content(input_parts)
-        return response.text.strip() if response else "❌ Không có phản hồi từ GenMini."
+        return response.text.strip() if response else "âŒ KhÃ´ng cÃ³ pháº£n há»“i tá»« GenMini."
 
     except Exception as e:
-        return f"⚠️ Lỗi khi gọi GenMini API: {str(e)}"
+        return f"âš ï¸ Lá»—i khi gá»i GenMini API: {str(e)}"
 def rag_pipeline(question):
     retrieved_chunks = search_similar_chunks(question, top_k=3)
     image_paths = []
 
     context = "\n\n".join(f"{chunk['content']}" for chunk in retrieved_chunks)
-    answer = generate_answer_with_genmini(question, context, image_paths) if context else "❌ Không tìm thấy tài liệu phù hợp."
+    answer = generate_answer_with_genmini(question, context, image_paths) if context else "âŒ KhÃ´ng tÃ¬m tháº¥y tÃ i liá»‡u phÃ¹ há»£p."
 
     return {
         'question': question,
@@ -136,12 +136,12 @@ def rag_pipeline(question):
 
 
 if __name__ == "__main__":
-    user_question = "Điều kiện để một điểm là cực tiểu của hàm số là gì?"
+    user_question = "Äiá»u kiá»‡n Ä‘á»ƒ má»™t Ä‘iá»ƒm lÃ  cá»±c tiá»ƒu cá»§a hÃ m sá»‘ lÃ  gÃ¬?"
     result = rag_pipeline(user_question)
 
-    print("\n===== 📖 Kết quả tìm kiếm =====")
+    print("\n===== ðŸ“– Káº¿t quáº£ tÃ¬m kiáº¿m =====")
     for chunk in result['retrieved_chunks']:
-        print(f"- Trang {chunk['page']}: {chunk['content'][:200]}...")  # Chỉ hiển thị 200 ký tự đầu tiên
+        print(f"- Trang {chunk['page']}: {chunk['content'][:200]}...")  # Chá»‰ hiá»ƒn thá»‹ 200 kÃ½ tá»± Ä‘áº§u tiÃªn
 
-    print("\n===== Gia sư trả lời =====")
-    print(f"### Kết quả: \n\n**{result['answer']}**")  
+    print("\n===== Gia sÆ° tráº£ lá»i =====")
+    print(f"### Káº¿t quáº£: \n\n**{result['answer']}**")  

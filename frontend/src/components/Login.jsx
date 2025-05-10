@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { api } from "../lib/api"; // Thay đổi import ở đây
 
 function Login() {
   const navigate = useNavigate();
@@ -22,7 +22,8 @@ function Login() {
     setIsLoading(true);
     
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/login", {
+      // Sử dụng api instance thay vì axios trực tiếp
+      const response = await api.post("/api/auth/login", {
         username,
         password
       });

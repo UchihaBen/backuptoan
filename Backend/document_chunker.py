@@ -1,4 +1,4 @@
-import os
+﻿import os
 import re
 import json
 import time
@@ -8,16 +8,16 @@ from pathlib import Path
 import hashlib
 import tiktoken
 
-# Import có thể gây lỗi nếu không có thư viện, cho phép import thất bại
+# Import cÃ³ thá»ƒ gÃ¢y lá»—i náº¿u khÃ´ng cÃ³ thÆ° viá»‡n, cho phÃ©p import tháº¥t báº¡i
 try:
     import chromadb
     from sentence_transformers import SentenceTransformer
-    # Khởi tạo model SentenceTransformer nếu có
+    # Khá»Ÿi táº¡o model SentenceTransformer náº¿u cÃ³
     EMBEDDING_MODEL = None
     DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
     CHROMA_CLIENT = None
 except ImportError:
-    # Không gây lỗi nếu không có thư viện
+    # KhÃ´ng gÃ¢y lá»—i náº¿u khÃ´ng cÃ³ thÆ° viá»‡n
     pass
 
 try:
@@ -30,26 +30,26 @@ try:
 except ImportError:
     print("Warning: python-docx not installed. DOCX processing will not be available.")
 
-# Định nghĩa đường dẫn
+# Äá»‹nh nghÄ©a Ä‘Æ°á»ng dáº«n
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DOCUMENTS_DIR = os.path.join(BASE_DIR, "documents")
 CHUNKS_DIR = os.path.join(BASE_DIR, "chunks")
 
-# Đảm bảo thư mục tồn tại
+# Äáº£m báº£o thÆ° má»¥c tá»“n táº¡i
 os.makedirs(DOCUMENTS_DIR, exist_ok=True)
 os.makedirs(CHUNKS_DIR, exist_ok=True)
 
-# Khởi tạo tokenizer giống với mô hình trong ebd_document.py
-TOKENIZER = tiktoken.get_encoding("cl100k_base")  # Tokenizer tương thích với các mô hình OpenAI mới nhất
+# Khá»Ÿi táº¡o tokenizer giá»‘ng vá»›i mÃ´ hÃ¬nh trong ebd_document.py
+TOKENIZER = tiktoken.get_encoding("cl100k_base")  # Tokenizer tÆ°Æ¡ng thÃ­ch vá»›i cÃ¡c mÃ´ hÃ¬nh OpenAI má»›i nháº¥t
 
-# Hàm khởi tạo embedding model nếu cần nhưng chỉ khi gọi trực tiếp
+# HÃ m khá»Ÿi táº¡o embedding model náº¿u cáº§n nhÆ°ng chá»‰ khi gá»i trá»±c tiáº¿p
 def initialize_embedding():
     global EMBEDDING_MODEL, CHROMA_CLIENT
     if EMBEDDING_MODEL is None:
         try:
             print("Initializing embedding model...")
-            # Đây là model giống với ebd_document.py
-            EMBEDDING_MODEL = SentenceTransformer("intfloat/multilingual-e5-large")
+            # ÄÃ¢y lÃ  model giá»‘ng vá»›i ebd_document.py
+            EMBEDDING_MODEL = SentenceTransformer("intfloat/multilingual-e5-base")
             CHROMA_CLIENT = chromadb.PersistentClient(path=DB_PATH)
             print("Embedding model initialized")
             return True
@@ -58,17 +58,17 @@ def initialize_embedding():
             return False
     return True
 
-# Hàm đếm tokens
+# HÃ m Ä‘áº¿m tokens
 def count_tokens(text):
     tokens = TOKENIZER.encode(text)
     return len(tokens)
 
-# Hàm tạo ID duy nhất cho tài liệu
+# HÃ m táº¡o ID duy nháº¥t cho tÃ i liá»‡u
 def generate_document_id(title, content):
     unique_string = f"{title}_{content[:100]}_{time.time()}"
     return hashlib.md5(unique_string.encode()).hexdigest()
 
-# Hàm đọc file PDF
+# HÃ m Ä‘á»c file PDF
 def read_pdf(file_path):
     text = ""
     with open(file_path, "rb") as file:
@@ -78,7 +78,7 @@ def read_pdf(file_path):
             text += page.extract_text() + "\n\n"
     return text
 
-# Hàm đọc file DOCX
+# HÃ m Ä‘á»c file DOCX
 def read_docx(file_path):
     doc = docx.Document(file_path)
     text = ""
@@ -86,12 +86,12 @@ def read_docx(file_path):
         text += para.text + "\n"
     return text
 
-# Hàm đọc file văn bản thông thường
+# HÃ m Ä‘á»c file vÄƒn báº£n thÃ´ng thÆ°á»ng
 def read_text_file(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
         return file.read()
 
-# Hàm phân tích nội dung file dựa vào định dạng
+# HÃ m phÃ¢n tÃ­ch ná»™i dung file dá»±a vÃ o Ä‘á»‹nh dáº¡ng
 def extract_text_from_file(file_path):
     file_extension = os.path.splitext(file_path)[1].lower()
     
@@ -102,56 +102,56 @@ def extract_text_from_file(file_path):
     elif file_extension in [".txt", ".md"]:
         return read_text_file(file_path)
     else:
-        raise ValueError(f"Không hỗ trợ định dạng file: {file_extension}")
+        raise ValueError(f"KhÃ´ng há»— trá»£ Ä‘á»‹nh dáº¡ng file: {file_extension}")
 
-# Hàm chia văn bản thành các chunk dựa trên số lượng token
+# HÃ m chia vÄƒn báº£n thÃ nh cÃ¡c chunk dá»±a trÃªn sá»‘ lÆ°á»£ng token
 def split_text_into_chunks(text, chunk_size=1000, chunk_overlap=200):
     """
-    Chia văn bản thành các chunk với kích thước và độ chồng lấn cho trước.
+    Chia vÄƒn báº£n thÃ nh cÃ¡c chunk vá»›i kÃ­ch thÆ°á»›c vÃ  Ä‘á»™ chá»“ng láº¥n cho trÆ°á»›c.
     
     Args:
-        text (str): Văn bản cần chia
-        chunk_size (int): Số token tối đa cho một chunk (khoảng 1000 token ~ 750 từ)
-        chunk_overlap (int): Số token chồng lấn giữa các chunk liên tiếp
+        text (str): VÄƒn báº£n cáº§n chia
+        chunk_size (int): Sá»‘ token tá»‘i Ä‘a cho má»™t chunk (khoáº£ng 1000 token ~ 750 tá»«)
+        chunk_overlap (int): Sá»‘ token chá»“ng láº¥n giá»¯a cÃ¡c chunk liÃªn tiáº¿p
     
     Returns:
-        list: Danh sách các chunk văn bản
+        list: Danh sÃ¡ch cÃ¡c chunk vÄƒn báº£n
     """
-    print(f"Bắt đầu chia văn bản thành các chunk với kích thước {chunk_size} token và độ chồng lấn {chunk_overlap} token")
+    print(f"Báº¯t Ä‘áº§u chia vÄƒn báº£n thÃ nh cÃ¡c chunk vá»›i kÃ­ch thÆ°á»›c {chunk_size} token vÃ  Ä‘á»™ chá»“ng láº¥n {chunk_overlap} token")
     
-    # Nếu văn bản rỗng hoặc rất ngắn
+    # Náº¿u vÄƒn báº£n rá»—ng hoáº·c ráº¥t ngáº¯n
     if not text or len(text) < 10:
         return [text] if text else []
     
-    # Chia văn bản thành các câu để có đơn vị nhỏ hơn đoạn văn
+    # Chia vÄƒn báº£n thÃ nh cÃ¡c cÃ¢u Ä‘á»ƒ cÃ³ Ä‘Æ¡n vá»‹ nhá» hÆ¡n Ä‘oáº¡n vÄƒn
     sentences = re.split(r'(?<=[.!?])\s+', text)
     chunks = []
     current_chunk = []
     current_chunk_tokens = 0
     
-    # Độ linh hoạt kích thước - chỉ tạo chunk mới nếu vượt quá ngưỡng này
-    # Chúng ta sẽ cho phép chunk đạt ít nhất 80% kích thước mục tiêu trước khi đóng
+    # Äá»™ linh hoáº¡t kÃ­ch thÆ°á»›c - chá»‰ táº¡o chunk má»›i náº¿u vÆ°á»£t quÃ¡ ngÆ°á»¡ng nÃ y
+    # ChÃºng ta sáº½ cho phÃ©p chunk Ä‘áº¡t Ã­t nháº¥t 80% kÃ­ch thÆ°á»›c má»¥c tiÃªu trÆ°á»›c khi Ä‘Ã³ng
     min_chunk_threshold = chunk_size * 0.8
     
     for sentence in sentences:
         if not sentence.strip():
             continue
         
-        # Đếm token trong câu hiện tại
+        # Äáº¿m token trong cÃ¢u hiá»‡n táº¡i
         sentence_tokens = TOKENIZER.encode(sentence)
         sentence_token_count = len(sentence_tokens)
         
-        # Nếu câu quá dài (vượt quá chunk_size), chia nó thành các từ
+        # Náº¿u cÃ¢u quÃ¡ dÃ i (vÆ°á»£t quÃ¡ chunk_size), chia nÃ³ thÃ nh cÃ¡c tá»«
         if sentence_token_count > chunk_size:
-            # Nếu chunk hiện tại không rỗng và đạt kích thước tối thiểu, lưu lại trước
+            # Náº¿u chunk hiá»‡n táº¡i khÃ´ng rá»—ng vÃ  Ä‘áº¡t kÃ­ch thÆ°á»›c tá»‘i thiá»ƒu, lÆ°u láº¡i trÆ°á»›c
             if current_chunk and current_chunk_tokens >= min_chunk_threshold:
                 chunks.append(" ".join(current_chunk))
                 
-                # Giữ lại phần chồng lấn cho chunk tiếp theo
+                # Giá»¯ láº¡i pháº§n chá»“ng láº¥n cho chunk tiáº¿p theo
                 overlap_text = []
                 overlap_token_count = 0
                 
-                # Đi ngược từ cuối để lấy các câu chồng lấn
+                # Äi ngÆ°á»£c tá»« cuá»‘i Ä‘á»ƒ láº¥y cÃ¡c cÃ¢u chá»“ng láº¥n
                 for i in range(len(current_chunk) - 1, -1, -1):
                     tokens = TOKENIZER.encode(current_chunk[i])
                     if overlap_token_count + len(tokens) <= chunk_overlap:
@@ -163,7 +163,7 @@ def split_text_into_chunks(text, chunk_size=1000, chunk_overlap=200):
                 current_chunk = overlap_text
                 current_chunk_tokens = overlap_token_count
             
-            # Chia câu dài thành các từ
+            # Chia cÃ¢u dÃ i thÃ nh cÃ¡c tá»«
             words = sentence.split()
             word_chunk = []
             word_chunk_tokens = 0
@@ -172,25 +172,25 @@ def split_text_into_chunks(text, chunk_size=1000, chunk_overlap=200):
                 word_tokens = TOKENIZER.encode(word + " ")
                 word_token_count = len(word_tokens)
                 
-                # Nếu thêm từ này không làm vượt quá kích thước chunk
+                # Náº¿u thÃªm tá»« nÃ y khÃ´ng lÃ m vÆ°á»£t quÃ¡ kÃ­ch thÆ°á»›c chunk
                 if word_chunk_tokens + word_token_count <= chunk_size:
                     word_chunk.append(word + " ")
                     word_chunk_tokens += word_token_count
                 else:
-                    # Lưu chunk từ hiện tại nếu có
+                    # LÆ°u chunk tá»« hiá»‡n táº¡i náº¿u cÃ³
                     if word_chunk:
                         full_text = "".join(word_chunk)
                         
-                        # Thêm vào chunk hiện tại nếu có thể
+                        # ThÃªm vÃ o chunk hiá»‡n táº¡i náº¿u cÃ³ thá»ƒ
                         if current_chunk_tokens + word_chunk_tokens <= chunk_size:
                             current_chunk.append(full_text)
                             current_chunk_tokens += word_chunk_tokens
                         else:
-                            # Lưu chunk hiện tại và tạo chunk mới
+                            # LÆ°u chunk hiá»‡n táº¡i vÃ  táº¡o chunk má»›i
                             if current_chunk:
                                 chunks.append(" ".join(current_chunk))
                             
-                            # Tạo chunk mới với độ chồng lấn
+                            # Táº¡o chunk má»›i vá»›i Ä‘á»™ chá»“ng láº¥n
                             overlap_text = []
                             overlap_token_count = 0
                             
@@ -206,24 +206,24 @@ def split_text_into_chunks(text, chunk_size=1000, chunk_overlap=200):
                             current_chunk.append(full_text)
                             current_chunk_tokens = overlap_token_count + word_chunk_tokens
                     
-                    # Bắt đầu một word chunk mới
+                    # Báº¯t Ä‘áº§u má»™t word chunk má»›i
                     word_chunk = [word + " "]
                     word_chunk_tokens = word_token_count
             
-            # Xử lý phần word_chunk còn lại
+            # Xá»­ lÃ½ pháº§n word_chunk cÃ²n láº¡i
             if word_chunk:
                 full_text = "".join(word_chunk)
                 
-                # Thêm vào chunk hiện tại nếu có thể
+                # ThÃªm vÃ o chunk hiá»‡n táº¡i náº¿u cÃ³ thá»ƒ
                 if current_chunk_tokens + word_chunk_tokens <= chunk_size:
                     current_chunk.append(full_text)
                     current_chunk_tokens += word_chunk_tokens
                 else:
-                    # Lưu chunk hiện tại và tạo chunk mới
+                    # LÆ°u chunk hiá»‡n táº¡i vÃ  táº¡o chunk má»›i
                     if current_chunk:
                         chunks.append(" ".join(current_chunk))
                     
-                    # Tạo chunk mới với độ chồng lấn
+                    # Táº¡o chunk má»›i vá»›i Ä‘á»™ chá»“ng láº¥n
                     overlap_text = []
                     overlap_token_count = 0
                     
@@ -239,14 +239,14 @@ def split_text_into_chunks(text, chunk_size=1000, chunk_overlap=200):
                     current_chunk.append(full_text) 
                     current_chunk_tokens = overlap_token_count + word_chunk_tokens
         else:
-            # Kiểm tra nếu thêm câu này vào sẽ vượt quá kích thước chunk
+            # Kiá»ƒm tra náº¿u thÃªm cÃ¢u nÃ y vÃ o sáº½ vÆ°á»£t quÃ¡ kÃ­ch thÆ°á»›c chunk
             if current_chunk_tokens + sentence_token_count > chunk_size:
-                # Kiểm tra xem chunk hiện tại đã đạt kích thước tối thiểu chưa
+                # Kiá»ƒm tra xem chunk hiá»‡n táº¡i Ä‘Ã£ Ä‘áº¡t kÃ­ch thÆ°á»›c tá»‘i thiá»ƒu chÆ°a
                 if current_chunk_tokens >= min_chunk_threshold:
-                    # Lưu chunk hiện tại và bắt đầu một chunk mới
+                    # LÆ°u chunk hiá»‡n táº¡i vÃ  báº¯t Ä‘áº§u má»™t chunk má»›i
                     chunks.append(" ".join(current_chunk))
                     
-                    # Tạo chunk mới với độ chồng lấn
+                    # Táº¡o chunk má»›i vá»›i Ä‘á»™ chá»“ng láº¥n
                     overlap_text = []
                     overlap_token_count = 0
                     
@@ -262,15 +262,15 @@ def split_text_into_chunks(text, chunk_size=1000, chunk_overlap=200):
                     current_chunk.append(sentence)
                     current_chunk_tokens = overlap_token_count + sentence_token_count
                 else:
-                    # Nếu chunk hiện tại chưa đủ lớn, thêm câu và đóng chunk ngay cả khi vượt quá chunk_size
-                    # Điều này là để đảm bảo kích thước tối thiểu cho chunk
+                    # Náº¿u chunk hiá»‡n táº¡i chÆ°a Ä‘á»§ lá»›n, thÃªm cÃ¢u vÃ  Ä‘Ã³ng chunk ngay cáº£ khi vÆ°á»£t quÃ¡ chunk_size
+                    # Äiá»u nÃ y lÃ  Ä‘á»ƒ Ä‘áº£m báº£o kÃ­ch thÆ°á»›c tá»‘i thiá»ƒu cho chunk
                     current_chunk.append(sentence)
                     current_chunk_tokens += sentence_token_count
                     
-                    # Lưu chunk vì nó đã vượt quá kích thước
+                    # LÆ°u chunk vÃ¬ nÃ³ Ä‘Ã£ vÆ°á»£t quÃ¡ kÃ­ch thÆ°á»›c
                     chunks.append(" ".join(current_chunk))
                     
-                    # Bắt đầu chunk mới với overlap từ chunk vừa đóng
+                    # Báº¯t Ä‘áº§u chunk má»›i vá»›i overlap tá»« chunk vá»«a Ä‘Ã³ng
                     overlap_text = []
                     overlap_token_count = 0
                     
@@ -285,69 +285,69 @@ def split_text_into_chunks(text, chunk_size=1000, chunk_overlap=200):
                     current_chunk = overlap_text
                     current_chunk_tokens = overlap_token_count
             else:
-                # Thêm câu vào chunk hiện tại
+                # ThÃªm cÃ¢u vÃ o chunk hiá»‡n táº¡i
                 current_chunk.append(sentence)
                 current_chunk_tokens += sentence_token_count
     
-    # Thêm chunk cuối cùng nếu còn và đạt kích thước tối thiểu
+    # ThÃªm chunk cuá»‘i cÃ¹ng náº¿u cÃ²n vÃ  Ä‘áº¡t kÃ­ch thÆ°á»›c tá»‘i thiá»ƒu
     if current_chunk:
         chunks.append(" ".join(current_chunk))
     
-    print(f"Đã chia thành {len(chunks)} chunks dựa trên token")
+    print(f"ÄÃ£ chia thÃ nh {len(chunks)} chunks dá»±a trÃªn token")
     
-    # Kiểm tra token count trong mỗi chunk để xác nhận
+    # Kiá»ƒm tra token count trong má»—i chunk Ä‘á»ƒ xÃ¡c nháº­n
     for i, chunk in enumerate(chunks):
         token_count = len(TOKENIZER.encode(chunk))
         print(f"  Chunk {i+1}: {token_count} tokens")
     
-    # Tính toán thống kê để in ra
+    # TÃ­nh toÃ¡n thá»‘ng kÃª Ä‘á»ƒ in ra
     token_counts = [len(TOKENIZER.encode(chunk)) for chunk in chunks]
     if token_counts:
         avg_tokens = sum(token_counts) / len(token_counts)
         min_tokens = min(token_counts)
         max_tokens = max(token_counts)
-        print(f"  Thống kê: TB={avg_tokens:.1f}, Min={min_tokens}, Max={max_tokens} tokens")
-        print(f"  Mức sử dụng: {avg_tokens/chunk_size*100:.1f}% kích thước chunk")
+        print(f"  Thá»‘ng kÃª: TB={avg_tokens:.1f}, Min={min_tokens}, Max={max_tokens} tokens")
+        print(f"  Má»©c sá»­ dá»¥ng: {avg_tokens/chunk_size*100:.1f}% kÃ­ch thÆ°á»›c chunk")
     return chunks
 
-# Hàm chính để xử lý tài liệu và lưu các chunk
+# HÃ m chÃ­nh Ä‘á»ƒ xá»­ lÃ½ tÃ i liá»‡u vÃ  lÆ°u cÃ¡c chunk
 def process_document(file_path, title, chunk_size=1000, chunk_overlap=200):
     """
-    Xử lý tài liệu: đọc nội dung, chia thành các chunk và lưu vào cơ sở dữ liệu
+    Xá»­ lÃ½ tÃ i liá»‡u: Ä‘á»c ná»™i dung, chia thÃ nh cÃ¡c chunk vÃ  lÆ°u vÃ o cÆ¡ sá»Ÿ dá»¯ liá»‡u
     
     Args:
-        file_path (str): Đường dẫn đến file tài liệu
-        title (str): Tiêu đề tài liệu
-        chunk_size (int): Kích thước chunk (số token)
-        chunk_overlap (int): Độ chồng lấn giữa các chunk (số token)
+        file_path (str): ÄÆ°á»ng dáº«n Ä‘áº¿n file tÃ i liá»‡u
+        title (str): TiÃªu Ä‘á» tÃ i liá»‡u
+        chunk_size (int): KÃ­ch thÆ°á»›c chunk (sá»‘ token)
+        chunk_overlap (int): Äá»™ chá»“ng láº¥n giá»¯a cÃ¡c chunk (sá»‘ token)
     
     Returns:
-        dict: Thông tin về tài liệu đã xử lý và các chunk
+        dict: ThÃ´ng tin vá» tÃ i liá»‡u Ä‘Ã£ xá»­ lÃ½ vÃ  cÃ¡c chunk
     """
     try:
-        # Đọc nội dung tài liệu
+        # Äá»c ná»™i dung tÃ i liá»‡u
         document_content = extract_text_from_file(file_path)
         
-        # Tạo ID cho tài liệu
+        # Táº¡o ID cho tÃ i liá»‡u
         document_id = generate_document_id(title, document_content)
         
-        # Tạo thư mục cho tài liệu này nếu chưa tồn tại
+        # Táº¡o thÆ° má»¥c cho tÃ i liá»‡u nÃ y náº¿u chÆ°a tá»“n táº¡i
         document_chunks_dir = os.path.join(CHUNKS_DIR, document_id)
         os.makedirs(document_chunks_dir, exist_ok=True)
         
-        # Tính tổng số token trong toàn bộ văn bản
+        # TÃ­nh tá»•ng sá»‘ token trong toÃ n bá»™ vÄƒn báº£n
         total_tokens = count_tokens(document_content)
         
-        # Chia tài liệu thành các chunk
+        # Chia tÃ i liá»‡u thÃ nh cÃ¡c chunk
         chunks = split_text_into_chunks(document_content, chunk_size, chunk_overlap)
         
-        # Đếm trung bình số token mỗi chunk
+        # Äáº¿m trung bÃ¬nh sá»‘ token má»—i chunk
         avg_tokens_per_chunk = sum(count_tokens(chunk) for chunk in chunks) / len(chunks)
         avg_words_per_chunk = sum(len(re.findall(r'\b\w+\b', chunk)) for chunk in chunks) / len(chunks)
         
-        print(f"Đã chia thành {len(chunks)} chunks, trung bình {avg_tokens_per_chunk:.0f} token/chunk (~{avg_words_per_chunk:.0f} từ/chunk)")
+        print(f"ÄÃ£ chia thÃ nh {len(chunks)} chunks, trung bÃ¬nh {avg_tokens_per_chunk:.0f} token/chunk (~{avg_words_per_chunk:.0f} tá»«/chunk)")
         
-        # Lưu thông tin tài liệu
+        # LÆ°u thÃ´ng tin tÃ i liá»‡u
         document_info = {
             "id": document_id,
             "title": title,
@@ -365,25 +365,25 @@ def process_document(file_path, title, chunk_size=1000, chunk_overlap=200):
             }
         }
         
-        # Lưu thông tin tài liệu vào file JSON
+        # LÆ°u thÃ´ng tin tÃ i liá»‡u vÃ o file JSON
         with open(os.path.join(document_chunks_dir, "document_info.json"), "w", encoding="utf-8") as f:
             json.dump(document_info, f, ensure_ascii=False, indent=2)
         
-        # Lưu từng chunk vào file riêng biệt
+        # LÆ°u tá»«ng chunk vÃ o file riÃªng biá»‡t
         chunk_infos = []
         for i, chunk_content in enumerate(chunks):
             chunk_id = f"{document_id}_{i+1}"
             chunk_file_path = os.path.join(document_chunks_dir, f"chunk_{i+1}.txt")
             
-            # Đếm token trong chunk và số từ
+            # Äáº¿m token trong chunk vÃ  sá»‘ tá»«
             token_count = count_tokens(chunk_content)
             word_count = len(re.findall(r'\b\w+\b', chunk_content))
             
-            # Lưu nội dung chunk
+            # LÆ°u ná»™i dung chunk
             with open(chunk_file_path, "w", encoding="utf-8") as f:
                 f.write(chunk_content)
             
-            # Thông tin về chunk
+            # ThÃ´ng tin vá» chunk
             chunk_info = {
                 "id": chunk_id,
                 "document_id": document_id,
@@ -396,7 +396,7 @@ def process_document(file_path, title, chunk_size=1000, chunk_overlap=200):
             }
             chunk_infos.append(chunk_info)
         
-        # Lưu thông tin tất cả các chunk vào file JSON
+        # LÆ°u thÃ´ng tin táº¥t cáº£ cÃ¡c chunk vÃ o file JSON
         with open(os.path.join(document_chunks_dir, "chunks_info.json"), "w", encoding="utf-8") as f:
             json.dump(chunk_infos, f, ensure_ascii=False, indent=2)
         
@@ -406,35 +406,35 @@ def process_document(file_path, title, chunk_size=1000, chunk_overlap=200):
         }
     
     except Exception as e:
-        print(f"Lỗi khi xử lý tài liệu: {str(e)}")
+        print(f"Lá»—i khi xá»­ lÃ½ tÃ i liá»‡u: {str(e)}")
         raise
 
-# Hàm lấy danh sách tất cả tài liệu đã xử lý
+# HÃ m láº¥y danh sÃ¡ch táº¥t cáº£ tÃ i liá»‡u Ä‘Ã£ xá»­ lÃ½
 def get_all_documents():
-    """Lấy danh sách tất cả tài liệu đã được xử lý"""
+    """Láº¥y danh sÃ¡ch táº¥t cáº£ tÃ i liá»‡u Ä‘Ã£ Ä‘Æ°á»£c xá»­ lÃ½"""
     documents = []
     
-    # Duyệt qua tất cả thư mục con trong CHUNKS_DIR
+    # Duyá»‡t qua táº¥t cáº£ thÆ° má»¥c con trong CHUNKS_DIR
     for doc_dir in os.listdir(CHUNKS_DIR):
         doc_path = os.path.join(CHUNKS_DIR, doc_dir)
         
-        # Kiểm tra xem có phải là thư mục không
+        # Kiá»ƒm tra xem cÃ³ pháº£i lÃ  thÆ° má»¥c khÃ´ng
         if os.path.isdir(doc_path):
             info_file = os.path.join(doc_path, "document_info.json")
             
-            # Nếu file thông tin tồn tại, đọc và thêm vào danh sách
+            # Náº¿u file thÃ´ng tin tá»“n táº¡i, Ä‘á»c vÃ  thÃªm vÃ o danh sÃ¡ch
             if os.path.exists(info_file):
                 with open(info_file, "r", encoding="utf-8") as f:
                     doc_info = json.load(f)
                     documents.append(doc_info)
     
-    # Sắp xếp theo ngày tải lên, mới nhất đầu tiên
+    # Sáº¯p xáº¿p theo ngÃ y táº£i lÃªn, má»›i nháº¥t Ä‘áº§u tiÃªn
     documents.sort(key=lambda x: x.get("upload_date", ""), reverse=True)
     return documents
 
-# Hàm lấy thông tin tài liệu theo ID
+# HÃ m láº¥y thÃ´ng tin tÃ i liá»‡u theo ID
 def get_document_by_id(document_id):
-    """Lấy thông tin tài liệu theo ID"""
+    """Láº¥y thÃ´ng tin tÃ i liá»‡u theo ID"""
     doc_path = os.path.join(CHUNKS_DIR, document_id)
     
     if not os.path.exists(doc_path):
@@ -447,9 +447,9 @@ def get_document_by_id(document_id):
     
     return None
 
-# Hàm lấy danh sách các chunk của một tài liệu
+# HÃ m láº¥y danh sÃ¡ch cÃ¡c chunk cá»§a má»™t tÃ i liá»‡u
 def get_document_chunks(document_id):
-    """Lấy danh sách các chunk của một tài liệu theo ID"""
+    """Láº¥y danh sÃ¡ch cÃ¡c chunk cá»§a má»™t tÃ i liá»‡u theo ID"""
     doc_path = os.path.join(CHUNKS_DIR, document_id)
     
     if not os.path.exists(doc_path):
@@ -462,9 +462,9 @@ def get_document_chunks(document_id):
     
     return []
 
-# Hàm lấy nội dung của một chunk cụ thể
+# HÃ m láº¥y ná»™i dung cá»§a má»™t chunk cá»¥ thá»ƒ
 def get_chunk_content(document_id, chunk_index):
-    """Lấy nội dung của một chunk cụ thể"""
+    """Láº¥y ná»™i dung cá»§a má»™t chunk cá»¥ thá»ƒ"""
     chunk_file = os.path.join(CHUNKS_DIR, document_id, f"chunk_{chunk_index}.txt")
     
     if os.path.exists(chunk_file):
@@ -473,34 +473,34 @@ def get_chunk_content(document_id, chunk_index):
     
     return None
 
-# Hàm xóa một tài liệu và tất cả chunk của nó
+# HÃ m xÃ³a má»™t tÃ i liá»‡u vÃ  táº¥t cáº£ chunk cá»§a nÃ³
 def delete_document(document_id):
-    """Xóa một tài liệu và tất cả chunk của nó"""
+    """XÃ³a má»™t tÃ i liá»‡u vÃ  táº¥t cáº£ chunk cá»§a nÃ³"""
     doc_path = os.path.join(CHUNKS_DIR, document_id)
     
     if not os.path.exists(doc_path):
         return False
     
-    # Xóa tất cả file trong thư mục
+    # XÃ³a táº¥t cáº£ file trong thÆ° má»¥c
     for file_name in os.listdir(doc_path):
         file_path = os.path.join(doc_path, file_name)
         try:
             if os.path.isfile(file_path):
                 os.unlink(file_path)
         except Exception as e:
-            print(f"Lỗi khi xóa file {file_path}: {e}")
+            print(f"Lá»—i khi xÃ³a file {file_path}: {e}")
     
-    # Xóa thư mục
+    # XÃ³a thÆ° má»¥c
     try:
         os.rmdir(doc_path)
         return True
     except Exception as e:
-        print(f"Lỗi khi xóa thư mục {doc_path}: {e}")
+        print(f"Lá»—i khi xÃ³a thÆ° má»¥c {doc_path}: {e}")
         return False
 
-# Hàm tìm kiếm tài liệu theo từ khóa
+# HÃ m tÃ¬m kiáº¿m tÃ i liá»‡u theo tá»« khÃ³a
 def search_documents(keyword):
-    """Tìm kiếm tài liệu theo từ khóa trong tiêu đề"""
+    """TÃ¬m kiáº¿m tÃ i liá»‡u theo tá»« khÃ³a trong tiÃªu Ä‘á»"""
     all_docs = get_all_documents()
     if not keyword:
         return all_docs
@@ -508,8 +508,8 @@ def search_documents(keyword):
     keyword = keyword.lower()
     return [doc for doc in all_docs if keyword in doc.get("title", "").lower()]
 
-# Nếu file này được chạy trực tiếp
+# Náº¿u file nÃ y Ä‘Æ°á»£c cháº¡y trá»±c tiáº¿p
 if __name__ == "__main__":
-    print("Module xử lý tài liệu và chia chunk.")
-    print(f"Thư mục lưu trữ tài liệu: {DOCUMENTS_DIR}")
-    print(f"Thư mục lưu trữ chunk: {CHUNKS_DIR}") 
+    print("Module xá»­ lÃ½ tÃ i liá»‡u vÃ  chia chunk.")
+    print(f"ThÆ° má»¥c lÆ°u trá»¯ tÃ i liá»‡u: {DOCUMENTS_DIR}")
+    print(f"ThÆ° má»¥c lÆ°u trá»¯ chunk: {CHUNKS_DIR}") 

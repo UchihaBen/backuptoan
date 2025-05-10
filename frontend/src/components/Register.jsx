@@ -1,7 +1,7 @@
 // Register.jsx - Trang đăng ký
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { api } from "../lib/api"; // Thay đổi import ở đây
 
 function Register() {
   const navigate = useNavigate();
@@ -62,7 +62,8 @@ function Register() {
     setIsLoading(true);
     
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/register", {
+      // Sử dụng api instance thay vì axios trực tiếp
+      const response = await api.post("/api/auth/register", {
         username: formData.username,
         email: formData.email,
         password: formData.password

@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Cài đặt các dependencies hệ thống
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Sao chép file requirements API_Rag
+COPY requirements.txt.api_rag ./requirements.txt
+
+# Cài đặt dependencies Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Sao chép toàn bộ mã nguồn
+COPY . .
+
+# Tạo thư mục uploads và cấp quyền
+RUN mkdir -p uploads/math_papers && chmod -R 777 uploads
+
+# Mở cổng
+EXPOSE 8000
+
+# Lệnh khởi chạy ứng dụng
+CMD ["uvicorn", "API_Rag:app", "--host", "0.0.0.0", "--port", "8000"] 

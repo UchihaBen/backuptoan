@@ -16,7 +16,9 @@ services:
       - key: FLASK_ENV
         value: production
       - key: CORS_ALLOWED_ORIGINS
-        value: "*"
+        value: "http://localhost:3000,http://127.0.0.1:3000"
+      - key: HOST
+        value: "0.0.0.0"
 
   - type: web
     name: giasutoan-fastapi
@@ -33,21 +35,19 @@ services:
       - key: PYTHON_VERSION
         value: 3.9.12
       - key: CORS_ALLOWED_ORIGINS
-        value: "*"
+        value: "http://localhost:3000,http://127.0.0.1:3000"
+      - key: HOST
+        value: "0.0.0.0"
 
   - type: web
     name: giasutoan-frontend
     env: node
     buildCommand: npm install && npm run build
-    startCommand: npx serve -s Frontend/dist -p $PORT
+    startCommand: npx serve -s Frontend/dist -p 3000
     envVars:
       - key: VITE_API_URL
-        fromService:
-          name: giasutoan-flask
-          type: web
-          property: url
+        value: "http://localhost:5000"
       - key: VITE_RAG_API_URL
-        fromService:
-          name: giasutoan-fastapi
-          type: web
-          property: url 
+        value: "http://localhost:8000"
+      - key: HOST
+        value: "0.0.0.0" 

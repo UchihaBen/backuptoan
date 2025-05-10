@@ -1,4 +1,4 @@
-import os
+﻿import os
 import chromadb
 from sentence_transformers import SentenceTransformer
 
@@ -6,7 +6,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHUNK_DIR = os.path.join(BASE_DIR, "documents")
 DB_PATH = os.path.join(BASE_DIR, "chroma_db")
 
-MODEL_NAME = "intfloat/multilingual-e5-large"
+MODEL_NAME = "intfloat/multilingual-e5-base"
 sentence_ef = SentenceTransformer(MODEL_NAME)
 chroma_client = chromadb.PersistentClient(path=DB_PATH)
 collection = chroma_client.get_or_create_collection(name="my_collection")
@@ -30,6 +30,6 @@ if documents:
         metadatas=metadatas,
         ids=[f"doc_{i}" for i in range(1, len(documents) + 1)]
     )
-    print(f"✅ Đã lưu {len(documents)} embeddings vào ChromaDB!")
+    print(f"âœ… ÄÃ£ lÆ°u {len(documents)} embeddings vÃ o ChromaDB!")
 else:
-    print("⚠️ Không có tài liệu nào để embeding.")
+    print("âš ï¸ KhÃ´ng cÃ³ tÃ i liá»‡u nÃ o Ä‘á»ƒ embeding.")

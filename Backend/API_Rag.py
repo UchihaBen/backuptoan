@@ -20,11 +20,14 @@ from openpyxl.utils import get_column_letter
 import shutil
 import json
 import openpyxl.styles
+from fastapi.staticfiles import StaticFiles
 # 🔐 Đặt API key của Gemini từ biến môi trường thay vì hardcode (bảo mật hơn)
 GENMINI_API_KEY = "AIzaSyAqX5bkYluS_QKYSILRVCJHvY6KpSy2-ds"
 genai.configure(api_key=GENMINI_API_KEY)
 
 app = FastAPI()
+
+print("🚀 API_Rag đang khởi động...")
 
 # ✅ Thêm CORS Middleware để React frontend có thể gọi API mà không lỗi CORS
 app.add_middleware(
@@ -35,9 +38,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+print("✅ Cấu hình CORS: Cho phép tất cả nguồn gốc")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "chroma_db")
-MODEL_NAME = "intfloat/multilingual-e5-large"
+MODEL_NAME = "intfloat/multilingual-e5-base"
+
+# Cấu hình đường dẫn uploads
+UPLOAD_FOLDER = "uploads"
+
+# Mount thư mục uploads để phục vụ các file tĩnh
+app.mount("/static", StaticFiles(directory=UPLOAD_FOLDER), name="static")
 
 # ✅ Kiểm tra model có tải thành công không
 try:
@@ -70,24 +81,55 @@ class ExcelExportRequest(BaseModel):
 
 def search_similar_chunks(question, top_k=3):
     try:
+        print(f"🔍 Searching for: '{question}', top_k={top_k}")
         query_embedding = sentence_ef.encode([question]).tolist()
-        results = collection.query(query_embeddings=query_embedding, n_results=top_k)
-
-        if not results["documents"]:
+        
+        # Đếm số lượng văn bản trong collection
+        collection_info = collection.get(include=["metadatas"])
+        total_chunks = len(collection_info["ids"]) if "ids" in collection_info else 0
+        print(f"💾 Database contains {total_chunks} total chunks")
+        
+        # In ra tất cả ID để debug
+        if "ids" in collection_info and collection_info["ids"]:
+            print(f"💾 First 5 IDs in database: {collection_info['ids'][:5]}")
+            if "metadatas" in collection_info and collection_info["metadatas"]:
+                for i in range(min(5, len(collection_info["metadatas"]))):
+                    print(f"Metadata {i}: {collection_info['metadatas'][i]}")
+        
+        if total_chunks == 0:
+            print("⚠️ No documents in the database. Please add some documents first.")
             return []
 
-        return [
-            {
+        # Tăng top_k để tìm nhiều kết quả hơn
+        search_top_k = min(total_chunks, 10)  # Tìm tối đa 10 kết quả hoặc tất cả chunks nếu ít hơn 10
+        print(f"🔍 Searching with top_k={search_top_k}")
+            
+        results = collection.query(query_embeddings=query_embedding, n_results=search_top_k)
+        
+        print(f"🔍 Query results: found {len(results['documents'][0]) if results['documents'] else 0} documents")
+        
+        if not results["documents"] or len(results["documents"][0]) == 0:
+            print("⚠️ No relevant documents found in the database")
+            return []
+
+        chunks_found = []
+        for doc, metadata, score in zip(results["documents"][0], results["metadatas"][0], results["distances"][0]):
+            chunk_info = {
                 'page': metadata.get('page', metadata.get('chunk_index', 0)), 
                 'content': doc, 
                 'score': score,
                 'document_id': metadata.get('document_id', 'unknown'),
                 'title': metadata.get('title', 'Unnamed Chunk')
             }
-            for doc, metadata, score in zip(results["documents"][0], results["metadatas"][0], results["distances"][0])
-        ]
+            chunks_found.append(chunk_info)
+            print(f"📄 Found chunk: {chunk_info['title']} (score: {score:.4f})")
+        
+        # Trả về top_k kết quả gốc như yêu cầu
+        return chunks_found[:top_k]
     except Exception as e:
         print(f"⚠️ Lỗi khi tìm kiếm tài liệu: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def generate_answer(question, context):
@@ -565,20 +607,16 @@ def Grade_math_paper(student_image_path, answer_key, model_name='gemini-2.0-flas
                     return None
                 print(f"File đã có dữ liệu sau khi đợi: {image_path}, kích thước: {file_size} bytes")
             
-            # Đọc file với try/except riêng để dễ debug
-            try:
-                with open(image_path, "rb") as image_file:
-                    file_content = image_file.read()
-                    if not file_content:
-                        print(f"Đọc được file nhưng nội dung rỗng: {image_path}")
-                        return None
-                    encoded = base64.b64encode(file_content).decode('utf-8')
-                    print(f"Đã mã hóa file thành công: {image_path} ({len(encoded)} ký tự)")
-                    return encoded
-            except Exception as read_error:
-                print(f"Lỗi khi đọc file: {read_error}")
-                return None
-            
+            # Đọc file và mã hóa base64
+            with open(image_path, "rb") as image_file:
+                file_content = image_file.read()
+                if not file_content:
+                    print(f"Đọc được file nhưng nội dung rỗng: {image_path}")
+                    return None
+                encoded = base64.b64encode(file_content).decode('utf-8')
+                print(f"Đã mã hóa file thành công: {image_path} ({len(encoded)} ký tự)")
+                return encoded
+                
         except Exception as e:
             print(f"Lỗi khi xử lý file: {e}")
             return None
@@ -660,6 +698,7 @@ def Grade_math_paper(student_image_path, answer_key, model_name='gemini-2.0-flas
         ```
 
         ## ⚠️ Lưu ý quan trọng
+        - Phải có đầy đủ các trường thông tin cần thiết( đặc biệt là: -Họ và tên:;-Lớp: 12A; - TỔNG ĐIỂM:)
         - Chấm điểm công bằng, không quá nghiêm khắc hay quá dễ dãi
         - Nhận diện các phương pháp giải khác với đáp án nhưng vẫn đúng
         - Khi học sinh làm đúng kết quả nhưng cách giải khác, cần phân tích cách giải của học sinh xem có chặt chẽ không
@@ -706,13 +745,32 @@ def Grade_math_paper(student_image_path, answer_key, model_name='gemini-2.0-flas
 @app.post("/answer")
 async def question(request: QuestionRequest):
     question = request.question
-    retrieved_chunks = search_similar_chunks(question, top_k=3)
+    print(f"💬 Câu hỏi từ người dùng: '{question}'")
+    print(f"💻 Request từ IP: {request.client.host if hasattr(request, 'client') else 'Unknown'}")
+    
+    # In thông tin về collection
+    try:
+        collection_info = collection.get(include=["metadatas"])
+        total_chunks = len(collection_info["ids"]) if "ids" in collection_info else 0
+        print(f"💾 Collection hiện có {total_chunks} chunks")
+        
+        if total_chunks > 0:
+            print(f"💾 ID đầu tiên: {collection_info['ids'][0]}")
+            print(f"💾 Metadata đầu tiên: {collection_info['metadatas'][0]}")
+    except Exception as e:
+        print(f"❌ Lỗi khi lấy thông tin từ collection: {str(e)}")
+    
+    # Thử tìm kiếm với threshold thấp hơn
+    retrieved_chunks = search_similar_chunks(question, top_k=5) # Tăng số lượng kết quả
 
     if not retrieved_chunks:
-        return {"question": question, "answer": "❌ Không tìm thấy tài liệu phù hợp."}
+        print("❌ Không tìm thấy chunks phù hợp trong database")
+        return {"question": question, "answer": "❌ Không tìm thấy tài liệu phù hợp. Vui lòng thử lại sau khi tài liệu đã được embed."}
 
+    print(f"✅ Tìm thấy {len(retrieved_chunks)} chunks phù hợp")
     context = "\n\n".join(f"{chunk['content']}" for chunk in retrieved_chunks)
     answer = generate_answer(question, context)
+    print(f"✅ Đã tạo câu trả lời dài {len(answer)} ký tự")
 
     return {"question": question, "answer": answer, "retrieved_chunks": retrieved_chunks}
 
@@ -893,9 +951,9 @@ async def upload_image(file: UploadFile = File(...)):
     API endpoint để upload ảnh và lưu vào thư mục cố định
     """
     try:
-        # Giữ nguyên tên file gốc
-        original_filename = file.filename
-        file_extension = original_filename.split(".")[-1] if "." in original_filename else "jpg"
+        # Tạo tên file duy nhất
+        file_extension = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+        unique_filename = f"{uuid.uuid4()}.{file_extension}"
         
         # Sử dụng thư mục cố định không phân chia theo ngày
         relative_folder = MATH_PAPERS_FOLDER
@@ -917,10 +975,7 @@ async def upload_image(file: UploadFile = File(...)):
             return {"success": False, "error": f"Lỗi khi tạo thư mục: {str(folder_error)}"}
         
         # Đường dẫn tương đối của file
-        relative_path = os.path.join(relative_folder, original_filename)
-        
-        # Kiểm tra xem file đã tồn tại chưa
-        file_exists = os.path.exists(relative_path)
+        relative_path = os.path.join(relative_folder, unique_filename)
         
         # Lưu file với xử lý lỗi chi tiết
         content = await file.read()
@@ -938,13 +993,8 @@ async def upload_image(file: UploadFile = File(...)):
                 return {"success": False, "error": "File không được lưu thành công"}
         
         print(f"Đã lưu file thành công tại: {relative_path}")
-        # Trả về đường dẫn tương đối và thông tin về việc ghi đè
-        return {
-            "success": True, 
-            "file_path": relative_path,
-            "file_exists": file_exists,
-            "original_filename": original_filename
-        }
+        # Trả về đường dẫn tương đối để API_Rag.py có thể truy cập
+        return {"success": True, "file_path": relative_path}
     except Exception as e:
         print(f"Lỗi khi upload_image: {str(e)}")
         return {"success": False, "error": str(e)}
@@ -1057,14 +1107,14 @@ async def export_excel(request: ExcelExportRequest):
                     full_result = full_result[:32700] + "... (đã cắt bớt)"
                 ws[f"E{row_num}"] = full_result
                 
-                # Thêm đường dẫn hình ảnh
+                # Thêm hình ảnh bài làm
                 image_path = item.get('imagePath', '')
                 if image_path:
                     # Chuyển đường dẫn tương đối thành đường dẫn đầy đủ
                     full_image_path = os.path.join(MATH_PAPERS_FOLDER, os.path.basename(image_path))
                     if os.path.exists(full_image_path):
                         try:
-                            # Tạo đối tượng hình ảnh từ file
+                            # Tạo đối tượng Image từ file
                             img = XLImage(full_image_path)
                             
                             # Điều chỉnh kích thước ảnh nếu cần
@@ -1078,17 +1128,15 @@ async def export_excel(request: ExcelExportRequest):
                                 img.width = int(img.width * ratio)
                                 img.height = int(img.height * ratio)
                             
-                            # Thêm ảnh vào ô F
+                            # Chèn ảnh vào ô F
                             ws.add_image(img, f"F{row_num}")
                             
                             # Điều chỉnh chiều cao hàng để hiển thị ảnh
-                            ws.row_dimensions[row_num].height = max(75, img.height * 0.75)
+                            ws.row_dimensions[row_num].height = max(75, img.height * 0.75)  # 0.75 là hệ số chuyển đổi
                             
-                            # Thêm đường dẫn tương đối vào ô G (ẩn) để tham chiếu
-                            ws[f"G{row_num}"] = os.path.basename(image_path)
                         except Exception as img_error:
-                            print(f"Lỗi khi thêm ảnh vào Excel: {img_error}")
-                            ws[f"F{row_num}"] = "Lỗi khi thêm ảnh"
+                            print(f"Lỗi khi chèn ảnh: {img_error}")
+                            ws[f"F{row_num}"] = f"Lỗi khi chèn ảnh: {str(img_error)}"
                     else:
                         ws[f"F{row_num}"] = "Không tìm thấy hình ảnh"
                 else:
@@ -1128,4 +1176,5 @@ async def export_excel(request: ExcelExportRequest):
 # Chạy serve
 if __name__ == "__main__":
     import uvicorn
+    print("🔌 API khởi chạy trên 0.0.0.0:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

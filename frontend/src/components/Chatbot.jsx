@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { API_URL } from "../lib/api";
 
 const Chatbot = forwardRef((props, ref) => {
   const location = useLocation();
@@ -41,7 +42,7 @@ const Chatbot = forwardRef((props, ref) => {
       setIsLoading(true);
       console.log("Fetching chat history for conversation:", convId);
       
-      const res = await axios.get(`http://localhost:5000/api/chat/conversations/${convId}`, {
+      const res = await axios.get(`${API_URL}/api/chat/conversations/${convId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -108,7 +109,7 @@ const Chatbot = forwardRef((props, ref) => {
     try {
       // Gọi API backend với token
       const res = await axios.post(
-        "http://localhost:5000/api/chat/ask", 
+        `${API_URL}/api/chat/ask`, 
         { 
           conversationId,
           question

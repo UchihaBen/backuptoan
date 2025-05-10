@@ -25,19 +25,30 @@ function GradeMathPaperPage() {
   });
 
   // Xử lý khi người dùng chọn ảnh bài làm
-  const handleFileChange = (event) => {
-    const selectedFiles = Array.from(event.target.files);
-    setFiles(selectedFiles);
-    
-    // Tạo URL preview cho các ảnh
-    const urls = selectedFiles.map(file => URL.createObjectURL(file));
-    setImagePreviewUrls(urls);
+  const handleFileChange = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    if (selectedFiles.length > 0) {
+      setFiles(selectedFiles);
+      
+      // Tạo URL preview cho các ảnh được chọn
+      const newPreviewUrls = selectedFiles.map(file => ({
+        name: file.name,
+        url: URL.createObjectURL(file)
+      }));
+      
+      // Xóa các URL cũ để tránh rò rỉ bộ nhớ
+      imagePreviewUrls.forEach(item => URL.revokeObjectURL(item.url));
+      
+      setImagePreviewUrls(newPreviewUrls);
+    }
   };
 
   // Xử lý khi người dùng chọn ảnh đáp án
-  const handleAnswerKeyFileChange = (event) => {
-    const file = event.target.files[0];
-    setAnswerKeyFile(file);
+  const handleAnswerKeyFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAnswerKeyFile(file);
+    }
   };
 
   // Xử lý khi người dùng nhập text đáp án
@@ -50,130 +61,568 @@ function GradeMathPaperPage() {
     setAnswerKeyType(e.target.value);
   };
 
-  // Xử lý upload file
-  const handleFileUpload = async (files) => {
+  // Gọi API chấm điểm cho một ảnh với đường dẫn
+  const gradeImage = async (imagePath, answerKey) => {
     try {
-      setError("Đang tải lên các file...");
-      const paths = [];
+      console.log(`Đang chấm điểm ảnh: ${imagePath}`);
+      console.log(`keykey : ${answerKey}`)
+      // Chuẩn bị dữ liệu để gửi đến API theo định dạng bạn đã chỉ định
+      const postData = {
+        student_image_path: imagePath,
+        answer_key: answerKey
+      };
+
+      // Gọi API bằng fetch
       
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        
-        try {
-          const response = await axios.post("http://127.0.0.1:8000/upload_image", formData, {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-            timeout: 30000, // Tăng timeout lên 30 giây
-          });
-          
-          if (response.data.success) {
-            // Kiểm tra nếu file đã tồn tại
-            if (response.data.file_exists) {
-              const confirmOverwrite = window.confirm(
-                `File "${response.data.original_filename}" đã tồn tại. Bạn có muốn ghi đè không?`
-              );
-              
-              if (!confirmOverwrite) {
-                setError(`Đã bỏ qua file "${response.data.original_filename}" vì đã tồn tại.`);
-                continue;
-              }
-            }
-            
-            paths.push(response.data.file_path);
-            setError(`Đã tải lên ${paths.length}/${files.length} file...`);
-          } else {
-            throw new Error(response.data.error || "Lỗi không xác định khi tải lên");
-          }
-        } catch (uploadError) {
-          console.error("Lỗi khi tải lên file:", uploadError);
-          setError(`Lỗi khi tải lên file ${file.name}: ${uploadError.message}`);
-          continue;
-        }
+    //   const response = await fetch("http://127.0.0.1:8000/grade_math_paper", {
+    //     method: "POST",
+    //     headers: {
+    //       "Content-Type": "application/json"
+    //     },
+    //     body: JSON.stringify(postData)
+    //   });
+        const response = await axios.post("http://127.0.0.1:8000/grade_math_paper", 
+            postData
+        );
+        console.log(`Đang chấm điểm ảnh: ${imagePath}`);
+    //   if (!response.ok) {
+    //     throw new Error(`Lỗi API: ${response.status}`);
+    //   }
+
+      // Xử lý kết quả
+      console.log(response)
+
+      const data = response.data.answer
+      
+      // Check if the answer contains error message
+      if (data && data.startsWith('❌')) {
+        throw new Error(data);
       }
       
-      // Verify that all uploads were successful
-      if (paths.length !== files.length) {
-        throw new Error(`Chỉ tải lên được ${paths.length}/${files.length} ảnh bài làm`);
-      }
+      return data
       
-      // Add a larger delay to ensure all files are available on the server
-      setError("Hoàn tất tải lên, đang chuẩn bị chấm điểm...");
-      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      return true;
-    } catch (err) {
-      console.error("Lỗi trong quá trình tải file:", err);
-      setError(`Lỗi khi tải file lên server: ${err.message}`);
-      return false;
+    } catch (error) {
+      console.error("Lỗi khi gọi API chấm điểm:", error);
+      // Extract the error message from axios error response if available
+      const errorMessage = error.response?.data?.error || error.message || "Không xác định";
+      throw new Error(errorMessage);
     }
   };
 
+  // Hàm xử lý dữ liệu kết quả để trích xuất thông tin
+  const parseGradeResult = (resultText) => {
+    try {
+      // Mặc định nếu không tìm thấy
+      let studentName = "Không xác định";
+      let studentClass = "Không xác định";
+      let totalScore = "Không xác định";
+      
+      // Trích xuất họ tên
+      const nameMatch = resultText.match(/-Họ và tên:\s*(.+?)(?:\r|\n|$)/);
+      if (nameMatch && nameMatch[1]) {
+        studentName = nameMatch[1].trim();
+      }
+      
+      // Trích xuất lớp
+      const classMatch = resultText.match(/-Lớp:\s*(.+?)(?:\r|\n|$)/);
+      if (classMatch && classMatch[1]) {
+        studentClass = classMatch[1].trim();
+      }
+      
+      // Trích xuất điểm tổng
+      const scoreMatch = resultText.match(/TỔNG ĐIỂM:\s*(.+?)(?:\r|\n|$)/);
+      if (scoreMatch && scoreMatch[1]) {
+        totalScore = scoreMatch[1].trim();
+      }
+      
+      return {
+        studentName,
+        studentClass,
+        totalScore,
+        fullResult: resultText
+      };
+    } catch (error) {
+      console.error("Lỗi khi xử lý kết quả:", error);
+      return {
+        studentName: "Lỗi xử lý",
+        studentClass: "Lỗi xử lý",
+        totalScore: "Lỗi xử lý",
+        fullResult: resultText
+      };
+    }
+  };
+
+  // Xử lý khi người dùng nhấn nút xem chi tiết
+  const handleViewDetail = (result) => {
+    // Create a display URL for the image
+    const resultWithImageUrl = {
+      ...result,
+      imageUrl: result.path ? `http://127.0.0.1:8000/static/${result.path.replace(/^uploads[\/\\]/, '')}` : null
+    };
+    
+    console.log("Image URL for detail view:", resultWithImageUrl.imageUrl);
+    
+    setSelectedDetail(resultWithImageUrl);
+    setShowDetailModal(true);
+  };
+
+  // Xử lý khi người dùng đóng modal chi tiết
+  const handleCloseDetail = () => {
+    setShowDetailModal(false);
+    setSelectedDetail(null);
+  };
+
+  // Xử lý khi người dùng nhấn nút chỉnh sửa
+  const handleEditClick = (result, index) => {
+    setEditingResult({ ...result, index });
+    setEditForm({
+      studentName: result.parsed.studentName,
+      studentClass: result.parsed.studentClass,
+      totalScore: result.parsed.totalScore
+    });
+    setShowEditModal(true);
+  };
+
+  // Xử lý khi người dùng thay đổi giá trị trong form chỉnh sửa
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Xử lý khi người dùng lưu thông tin chỉnh sửa
+  const handleSaveEdit = () => {
+    const updatedResults = [...results];
+    const index = editingResult.index;
+    
+    // Cập nhật dữ liệu đã parse
+    updatedResults[index] = {
+      ...updatedResults[index],
+      parsed: {
+        ...updatedResults[index].parsed,
+        studentName: editForm.studentName,
+        studentClass: editForm.studentClass,
+        totalScore: editForm.totalScore
+      }
+    };
+    
+    // Cập nhật nội dung văn bản đầy đủ
+    let updatedAnswer = updatedResults[index].answer;
+    updatedAnswer = updatedAnswer.replace(
+      /-Họ và tên:.*(\r|\n|$)/,
+      `-Họ và tên: ${editForm.studentName}$1`
+    );
+    updatedAnswer = updatedAnswer.replace(
+      /-Lớp:.*(\r|\n|$)/,
+      `-Lớp: ${editForm.studentClass}$1`
+    );
+    updatedAnswer = updatedAnswer.replace(
+      /TỔNG ĐIỂM:.*(\r|\n|$)/,
+      `TỔNG ĐIỂM: ${editForm.totalScore}$1`
+    );
+    
+    updatedResults[index].answer = updatedAnswer;
+    updatedResults[index].parsed.fullResult = updatedAnswer;
+    
+    // Cập nhật state
+    setResults(updatedResults);
+    setShowEditModal(false);
+    setEditingResult(null);
+  };
+
+  // Xử lý khi người dùng hủy chỉnh sửa
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditingResult(null);
+  };
+
+  // Xử lý khi người dùng nhấn nút xóa dòng
+  const handleDeleteRow = async (index, imagePath) => {
+    // Xác nhận xóa
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bài làm này không?')) {
+      return;
+    }
+    
+    try {
+      // Nếu có đường dẫn ảnh, gọi API để xóa ảnh từ server
+      if (imagePath) {
+        console.log('Đang xóa ảnh:', imagePath);
+        await axios.post('http://127.0.0.1:8000/delete_image', { file_path: imagePath });
+        console.log('Đã xóa ảnh:', imagePath);
+      } else {
+        console.warn('Không có đường dẫn ảnh để xóa');
+      }
+      
+      // Xóa dòng khỏi danh sách kết quả
+      const updatedResults = results.filter((_, i) => i !== index);
+      setResults(updatedResults);
+    } catch (error) {
+      console.error('Lỗi khi xóa dòng:', error);
+      setError('Không thể xóa dòng. Vui lòng thử lại sau: ' + error.message);
+    }
+  };
+
+  // Hiển thị thông báo trạng thái
+  const StatusMessage = ({ message, type = 'info' }) => {
+    const bgColor = {
+      info: 'bg-blue-50 text-blue-700',
+      success: 'bg-green-50 text-green-700',
+      error: 'bg-red-50 text-red-700',
+      warning: 'bg-yellow-50 text-yellow-700'
+    }[type];
+
+    return (
+      <div className={`mb-6 p-4 ${bgColor} rounded-md flex items-center`}>
+        {type === 'info' && (
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        )}
+        {type === 'success' && (
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+        {type === 'error' && (
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        )}
+        {type === 'warning' && (
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        )}
+        <span>{message}</span>
+      </div>
+    );
+  };
+
   // Xử lý khi người dùng nhấn nút chấm điểm
-  const handleGrade = async () => {
+  const handleGradeImages = async () => {
+    // Kiểm tra dữ liệu đầu vào
     if (files.length === 0) {
       setError("Vui lòng chọn ít nhất một ảnh bài làm");
       return;
     }
 
-    if (!answerKeyText && !answerKeyFile) {
-      setError("Vui lòng nhập đáp án hoặc chọn file đáp án");
+    if (answerKeyType === "text" && !answerKeyText.trim()) {
+      setError("Vui lòng nhập đáp án");
       return;
     }
 
-    setIsLoading(true);
+    if (answerKeyType === "image" && !answerKeyFile) {
+      setError("Vui lòng chọn ảnh đáp án");
+      return;
+    }
+
+    // Kiểm tra xem đã đang chấm bài chưa (để tránh nhấn nhiều lần)
+    if (isLoading) {
+      return;
+    }
+
+    // Reset các state liên quan đến lô ảnh mới
     setError(null);
-    setResults([]);
     setCurrentIndex(0);
+    setImagePaths([]); // Reset imagePaths trước khi upload mới
 
     try {
-      // Upload tất cả các file
-      const uploadSuccess = await handleFileUpload(files);
+      // Hiển thị trạng thái tải lên
+      setIsLoading(true);
+      setError("Đang tải ảnh lên server. Vui lòng đợi...");
+
+      // Upload tất cả ảnh trước
+      const uploadSuccess = await uploadAllFiles();
       if (!uploadSuccess) {
+        setError("Lỗi khi tải file lên server. Vui lòng thử lại.");
+        setIsLoading(false);
         return;
       }
 
-      // Upload đáp án nếu là file
-      if (answerKeyFile) {
-        const formData = new FormData();
-        formData.append("file", answerKeyFile);
-        const response = await axios.post("http://127.0.0.1:8000/upload_image", formData);
-        if (response.data.success) {
-          setAnswerKeyPath(response.data.file_path);
-        } else {
-          throw new Error(response.data.error || "Lỗi khi tải lên đáp án");
-        }
+      // Thêm delay đảm bảo tất cả file đã được ghi đầy đủ vào server
+      setError("Đang chuẩn bị chấm điểm...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setError(null);
+
+      // Bắt đầu quy trình chấm điểm ảnh đầu tiên
+      if (imagePaths.length > 0) {
+        await processNextImage();
+      } else {
+        setIsLoading(false);
       }
-
-      // Chấm điểm từng bài
-      const newResults = [];
-      for (let i = 0; i < files.length; i++) {
-        setCurrentIndex(i + 1);
-        setError(`Đang chấm bài ${i + 1}/${files.length}...`);
-
-        const response = await axios.post("http://127.0.0.1:8000/grade_math_paper", {
-          student_image_path: imagePaths[i],
-          answer_key: answerKeyType === "text" ? answerKeyText : answerKeyPath
-        });
-
-        newResults.push({
-          path: imagePaths[i],
-          answer: response.data.answer
-        });
-      }
-
-      setResults(newResults);
-      setError("Chấm điểm hoàn tất!");
-    } catch (err) {
-      console.error("Lỗi khi chấm điểm:", err);
-      setError(`Lỗi khi chấm điểm: ${err.message}`);
-    } finally {
+    } catch (error) {
+      console.error("Lỗi khi xử lý ảnh:", error);
+      setError("Có lỗi xảy ra: " + error.message);
       setIsLoading(false);
     }
   };
 
-  // Xử lý xuất Excel
+  const uploadAllFiles = async () => {
+    try {
+      // Upload các file ảnh bài làm
+      const paths = [];
+      
+      // Hiển thị thông tin về số lượng file cần tải lên
+      setError(`Đang tải lên ${files.length} ảnh bài làm...`);
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setError(`Đang tải lên ảnh ${i+1}/${files.length}: ${file.name}`);
+        
+        try {
+          const path = await uploadFileAndGetPath(file);
+          
+          // Verify the path is valid
+          if (!path) {
+            throw new Error(`Không nhận được đường dẫn hợp lệ cho file ${file.name}`);
+          }
+          
+          // Thêm thông tin vào mảng paths
+          paths.push({
+            file: file,
+            path: path,
+            preview: imagePreviewUrls.find(img => img.name === file.name)?.url
+          });
+          
+          // Small delay between uploads to avoid overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+        } catch (uploadError) {
+          console.error(`Lỗi khi tải lên ảnh ${file.name}:`, uploadError);
+          throw new Error(`Lỗi khi tải lên ảnh ${file.name}: ${uploadError.message}`);
+        }
+      }
+      
+      // Cập nhật state imagePaths với tất cả đường dẫn mới
+      setImagePaths(paths);
+      console.log("Đã upload tất cả ảnh:", paths);
+      
+      // Upload file đáp án nếu có
+      if (answerKeyType === "image" && answerKeyFile) {
+        setError(`Đang tải lên ảnh đáp án: ${answerKeyFile.name}`);
+        try {
+          const path = await uploadFileAndGetPath(answerKeyFile);
+          if (!path) {
+            throw new Error("Không nhận được đường dẫn hợp lệ cho file đáp án");
+          }
+          setAnswerKeyPath(path);
+        } catch (answerKeyError) {
+          console.error("Lỗi khi tải lên ảnh đáp án:", answerKeyError);
+          throw new Error(`Lỗi khi tải lên ảnh đáp án: ${answerKeyError.message}`);
+        }
+      }
+      
+      return paths.length > 0; // Trả về true nếu có ít nhất một đường dẫn hợp lệ
+    } catch (error) {
+      console.error("Lỗi trong quá trình upload:", error);
+      setError(error.message);
+      return false;
+    }
+  };
+
+  const processNextImage = async () => {
+    if (currentIndex >= imagePaths.length) {
+      setIsLoading(false);
+      return;
+    }
+
+    const currentImage = imagePaths[currentIndex];
+    console.log(`Đang xử lý ảnh ${currentIndex + 1}/${imagePaths.length}:`, currentImage);
+
+    try {
+      // Add a more substantial delay to ensure the file is fully written and available on the server
+      setError(`Đang chấm điểm ảnh ${currentIndex + 1}/${imagePaths.length}: ${currentImage.file.name}`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Verify path before calling API
+      console.log(`Bắt đầu chấm điểm ảnh: ${currentImage.path}`);
+      
+      // Gọi API để chấm điểm cho ảnh hiện tại
+      const answer = await gradeImage(currentImage.path, answerKeyPath);
+      
+      // Parse kết quả để trích xuất thông tin
+      const parsedResult = parseGradeResult(answer);
+      
+      // Thêm kết quả vào danh sách
+      const newResult = {
+        fileName: currentImage.file.name,
+        answer: answer,
+        preview: currentImage.preview,
+        parsed: parsedResult,
+        path: currentImage.path // Lưu đường dẫn ảnh để có thể xóa sau này
+      };
+      
+      setResults(prev => [...prev, newResult]);
+      setError(null);
+      
+      // Chờ một chút trước khi xử lý ảnh tiếp theo để tránh quá tải API
+      setTimeout(() => {
+        setCurrentIndex(prev => prev + 1);
+      }, 800);
+      
+    } catch (error) {
+      console.error(`Lỗi khi xử lý ảnh ${currentIndex + 1}:`, error);
+      setError(`Lỗi khi chấm điểm ảnh ${currentImage.file.name}: ${error.message}`);
+      // Vẫn tiếp tục với ảnh tiếp theo
+      setTimeout(() => {
+        setCurrentIndex(prev => prev + 1);
+      }, 800);
+    }
+  };
+
+  // Theo dõi khi currentIndex thay đổi để xử lý ảnh tiếp theo
+  useEffect(() => {
+    let mounted = true;
+
+    // Hàm để xử lý ảnh tiếp theo một cách an toàn
+    const handleNextImage = async () => {
+      if (!mounted || !isLoading || currentIndex >= imagePaths.length) return;
+      
+      try {
+        await processNextImage();
+      } catch (error) {
+        console.error("Lỗi trong useEffect khi xử lý ảnh:", error);
+        if (mounted) {
+          setError("Lỗi xử lý: " + error.message);
+        }
+      }
+    };
+
+    // Nếu đang tải và có ảnh cần xử lý, xử lý ảnh tiếp theo
+    if (isLoading && currentIndex < imagePaths.length) {
+      handleNextImage();
+    } else if (currentIndex >= imagePaths.length && imagePaths.length > 0) {
+      // Đã xử lý xong tất cả các ảnh
+      if (mounted) {
+        setIsLoading(false);
+        
+        // Reset tất cả state liên quan đến ảnh và đường dẫn
+        setFiles([]);
+        setImagePaths([]); // Reset mảng đường dẫn
+        setCurrentIndex(0);
+        
+        // Xóa các URL preview để tránh rò rỉ bộ nhớ
+        imagePreviewUrls.forEach(item => URL.revokeObjectURL(item.url));
+        setImagePreviewUrls([]);
+        
+        // Làm trống các phần tử input
+        const fileInputs = document.querySelectorAll('input[type="file"]');
+        fileInputs.forEach(input => {
+          // Chỉ reset input chọn bài làm, không reset input chọn đáp án
+          if (input.getAttribute('multiple') !== null) {
+            input.value = '';
+          }
+        });
+      }
+    }
+
+    // Hàm cleanup khi component unmount hoặc deps thay đổi
+    return () => {
+      mounted = false;
+    };
+  }, [currentIndex, imagePaths.length, isLoading]);
+
+  // Xóa tất cả ảnh và reset form
+  const handleClearAll = () => {
+    // Xác nhận trước khi xóa tất cả
+    if (results.length > 0 && !window.confirm('Bạn có chắc muốn xóa tất cả kết quả đã chấm?')) {
+      return;
+    }
+    
+    // Xóa các URL preview để tránh rò rỉ bộ nhớ
+    imagePreviewUrls.forEach(item => URL.revokeObjectURL(item.url));
+    
+    // Reset tất cả state
+    setFiles([]);
+    setAnswerKeyFile(null);
+    setAnswerKeyText("");
+    setImagePreviewUrls([]);
+    setResults([]);
+    setError(null);
+    setImagePaths([]);
+    setCurrentIndex(0);
+    setAnswerKeyPath("");
+    
+    // Reset các input file
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    fileInputs.forEach(input => {
+      input.value = '';
+    });
+  };
+  
+  // Hủy quá trình chấm điểm
+  const handleCancel = () => {
+    setIsLoading(false);
+    // Dừng ở ảnh hiện tại, không xử lý tiếp
+    setCurrentIndex(imagePaths.length);
+  };
+
+  // Mô phỏng việc tải file lên server và lấy đường dẫn
+  const uploadFileAndGetPath = async (file) => {
+    // Số lần thử lại tối đa
+    const maxRetries = 3;
+    let retryCount = 0;
+    let lastError = null;
+
+    while (retryCount < maxRetries) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        console.log(`Đang tải file: ${file.name} (lần thử ${retryCount + 1}/${maxRetries})`);
+        
+        const response = await axios.post("http://127.0.0.1:8000/upload_image", formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        if (response.data && response.data.success) {
+          const filePath = response.data.file_path;
+          console.log(`Tải lên thành công: ${file.name} -> ${filePath}`);
+          
+          // Kiểm tra đường dẫn trả về có hợp lệ không
+          if (!filePath || filePath.trim() === '') {
+            throw new Error("Server trả về đường dẫn rỗng");
+          }
+          
+          // Thêm kiểm tra xác nhận file đã tồn tại
+          try {
+            // Gọi API kiểm tra file tồn tại
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            return filePath;
+          } catch (verifyError) {
+            console.error("Lỗi khi xác minh file:", verifyError);
+            throw new Error("Không thể xác minh file trên server");
+          }
+        } else {
+          throw new Error(response.data.error || "Lỗi không xác định khi tải file lên");
+        }
+      } catch (error) {
+        console.error(`Lỗi lần ${retryCount + 1}/${maxRetries} khi tải file ${file.name}:`, error);
+        lastError = error;
+        retryCount++;
+        
+        if (retryCount < maxRetries) {
+          // Tăng thời gian chờ giữa các lần thử
+          const delayMs = 1000 * retryCount; // 1s, 2s, 3s,...
+          console.log(`Đợi ${delayMs/1000}s trước khi thử lại...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    
+    // Nếu tất cả các lần thử đều thất bại
+    console.error(`Đã thử ${maxRetries} lần nhưng không thành công:`, lastError);
+    throw lastError || new Error("Không thể tải file lên sau nhiều lần thử");
+  };
+
+  // Thêm hàm xử lý xuất Excel vào đây
   const handleExportExcel = async () => {
     if (results.length === 0) {
       setError("Không có dữ liệu để xuất Excel");
@@ -186,6 +635,7 @@ function GradeMathPaperPage() {
       
       // Chuẩn bị dữ liệu để gửi
       const exportData = results.map(result => {
+        // Đảm bảo dữ liệu hợp lệ bằng cách kiểm tra từng trường
         return {
           studentName: result.parsed?.studentName || "Không xác định",
           studentClass: result.parsed?.studentClass || "Không xác định",
@@ -195,15 +645,26 @@ function GradeMathPaperPage() {
         };
       });
       
+      console.log(`Chuẩn bị xuất ${exportData.length} bản ghi`);
+      
       // Gọi API xuất Excel
       const response = await axios.post(
         "http://127.0.0.1:8000/export_excel", 
         { results: exportData },
         { 
-          responseType: 'blob',
-          timeout: 30000
+          responseType: 'blob',  // Quan trọng để nhận file
+          timeout: 30000  // Tăng timeout lên 30 giây
         }
       );
+      
+      // Kiểm tra response
+      if (response.status !== 200) {
+        throw new Error(`Lỗi từ server: ${response.status}`);
+      }
+      
+      if (!response.data || response.data.size === 0) {
+        throw new Error("Nhận được file rỗng từ server");
+      }
       
       // Tạo URL và link tải xuống
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -211,7 +672,11 @@ function GradeMathPaperPage() {
       link.href = url;
       link.setAttribute('download', `ket_qua_cham_diem_${new Date().toISOString().slice(0,10)}.xlsx`);
       document.body.appendChild(link);
+      
+      // Kích hoạt tải xuống
       link.click();
+      
+      // Dọn dẹp
       window.URL.revokeObjectURL(url);
       link.remove();
       
@@ -240,132 +705,161 @@ function GradeMathPaperPage() {
             Hệ thống chấm điểm bài tập toán
           </h1>
 
-          {/* Hiển thị lỗi */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
-              {error}
-            </div>
-          )}
+          {/* Hiển thị thông báo trạng thái */}
+          {error && <StatusMessage message={error} type={error.includes("Lỗi") ? "error" : "info"} />}
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Phần upload ảnh bài làm */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Chọn ảnh bài làm
-              </label>
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleFileChange}
-                className="block w-full text-sm text-gray-500
-                          file:mr-4 file:py-2 file:px-4
-                          file:rounded-md file:border-0
-                          file:text-sm file:font-semibold
-                          file:bg-blue-50 file:text-blue-700
-                          hover:file:bg-blue-100"
-              />
-              
-              {/* Hiển thị preview ảnh */}
+            {/* Phần tải lên ảnh bài làm */}
+            <div className="bg-gray-50 p-4 rounded-md">
+              <h2 className="text-lg font-semibold mb-4">Bài làm của học sinh</h2>
+
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">
+                  Chọn ảnh bài làm (có thể chọn nhiều ảnh)
+                </label>
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  accept="image/*"
+                  multiple
+                  disabled={isLoading}
+                />
+              </div>
+
+              {/* Hiển thị preview các ảnh đã chọn */}
               {imagePreviewUrls.length > 0 && (
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  {imagePreviewUrls.map((url, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={url}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1">
-                        {files[index].name}
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-2">
+                    Đã chọn {imagePreviewUrls.length} ảnh
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {imagePreviewUrls.map((img, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={img.url}
+                          alt={`Preview ${index}`}
+                          className="h-24 w-full object-cover rounded"
+                        />
+                        <span className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 truncate">
+                          {img.name}
+                        </span>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Phần nhập đáp án */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Loại đáp án
-              </label>
-              <div className="flex space-x-4 mb-4">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    value="text"
-                    checked={answerKeyType === "text"}
-                    onChange={(e) => setAnswerKeyType(e.target.value)}
-                    className="form-radio"
-                  />
-                  <span className="ml-2">Nhập text</span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    value="image"
-                    checked={answerKeyType === "image"}
-                    onChange={(e) => setAnswerKeyType(e.target.value)}
-                    className="form-radio"
-                  />
-                  <span className="ml-2">Upload ảnh</span>
-                </label>
+            {/* Phần đáp án */}
+            <div className="bg-gray-50 p-4 rounded-md">
+              <h2 className="text-lg font-semibold mb-4">Đáp án</h2>
+
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Chọn loại đáp án</label>
+                <select
+                  value={answerKeyType}
+                  onChange={handleAnswerTypeChange}
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isLoading}
+                >
+                  <option value="text">Đáp án dạng text</option>
+                  <option value="image">Đáp án dạng ảnh</option>
+                </select>
               </div>
 
               {answerKeyType === "text" ? (
-                <textarea
-                  value={answerKeyText}
-                  onChange={(e) => setAnswerKeyText(e.target.value)}
-                  placeholder="Nhập đáp án và biểu điểm..."
-                  className="w-full h-32 p-2 border rounded-md"
-                />
+                <div className="mb-4">
+                  <label className="block text-gray-700 mb-2">Nhập đáp án</label>
+                  <textarea
+                    value={answerKeyText}
+                    onChange={handleAnswerKeyTextChange}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                    placeholder="Nhập đáp án tại đây"
+                    disabled={isLoading}
+                  />
+                </div>
               ) : (
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAnswerKeyFileChange}
-                  className="block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-md file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-blue-50 file:text-blue-700
-                            hover:file:bg-blue-100"
-                />
+                <div className="mb-4">
+                  <label className="block text-gray-700 mb-2">Chọn ảnh đáp án</label>
+                  <input
+                    type="file"
+                    onChange={handleAnswerKeyFileChange}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    accept="image/*"
+                    disabled={isLoading}
+                  />
+                  {answerKeyFile && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      Đã chọn: {answerKeyFile.name}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
-          {/* Nút chấm điểm */}
-          <div className="mt-6">
-            <button
-              onClick={handleGrade}
-              disabled={isLoading}
-              className={`w-full py-2 px-4 rounded-md text-white font-medium ${
-                isLoading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-              }`}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Đang chấm điểm...
-                </span>
-              ) : (
-                'Chấm điểm'
-              )}
-            </button>
+          {/* Nút chức năng */}
+          <div className="mt-6 flex gap-4">
+            {!isLoading ? (
+              <>
+                <button
+                  onClick={handleGradeImages}
+                  className={`flex-1 p-3 ${files.length > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'} text-white rounded-md font-medium`}
+                  disabled={files.length === 0 || isLoading}
+                >
+                  Chấm điểm các bài làm
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  className="p-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium"
+                  disabled={isLoading}
+                >
+                  Xóa tất cả
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleCancel}
+                  className="flex-1 p-3 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium"
+                >
+                  Dừng lại
+                </button>
+                <div className="p-3 text-gray-500 rounded-md font-medium">
+                  Đang chấm bài {currentIndex + 1}/{imagePaths.length}
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Hiển thị kết quả */}
+          {/* Trạng thái đang xử lý và tiến trình */}
+          {isLoading && (
+            <div className="mt-6 bg-blue-50 p-4 rounded-md">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium text-blue-700">
+                  Đang xử lý ảnh {currentIndex + 1}/{imagePaths.length}
+                </span>
+                <span className="text-sm text-blue-600">
+                  {Math.round((currentIndex / imagePaths.length) * 100)}%
+                </span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${(currentIndex / imagePaths.length) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* Kết quả chấm điểm dạng bảng */}
           {results.length > 0 && (
             <div className="mt-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold">
-                  Kết quả chấm điểm ({results.length}/{files.length})
-                </h2>
+                Kết quả chấm điểm ({results.length}/{files.length})
+              </h2>
                 <button
                   onClick={handleExportExcel}
                   disabled={isExporting || results.length === 0}
@@ -405,27 +899,30 @@ function GradeMathPaperPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.map((result, index) => (
+                {results.map((result, index) => (
                       <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                        <td className="py-2 px-4 border-b border-gray-200">{index + 1}</td>
-                        <td className="py-2 px-4 border-b border-gray-200">
-                          {result.parsed?.studentName || "Không xác định"}
-                        </td>
-                        <td className="py-2 px-4 border-b border-gray-200">
-                          {result.parsed?.studentClass || "Không xác định"}
-                        </td>
-                        <td className="py-2 px-4 border-b border-gray-200">
-                          {result.parsed?.totalScore || "0"}
-                        </td>
-                        <td className="py-2 px-4 border-b border-gray-200">
-                          <button
-                            onClick={() => {
-                              setSelectedDetail(result);
-                              setShowDetailModal(true);
-                            }}
-                            className="text-blue-600 hover:text-blue-800"
+                        <td className="py-3 px-4 border-b border-gray-200">{index + 1}</td>
+                        <td className="py-3 px-4 border-b border-gray-200">{result.parsed?.studentName || "Không xác định"}</td>
+                        <td className="py-3 px-4 border-b border-gray-200">{result.parsed?.studentClass || "Không xác định"}</td>
+                        <td className="py-3 px-4 border-b border-gray-200 font-medium">{result.parsed?.totalScore || "Không xác định"}</td>
+                        <td className="py-3 px-4 border-b border-gray-200 flex space-x-2">
+                          <button 
+                            onClick={() => handleViewDetail(result)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-sm"
                           >
-                            Xem chi tiết
+                            Chi tiết
+                          </button>
+                          <button 
+                            onClick={() => handleEditClick(result, index)}
+                            className="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded text-sm"
+                          >
+                            Sửa
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteRow(index, result.path)}
+                            className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-sm"
+                          >
+                            Xóa
                           </button>
                         </td>
                       </tr>
@@ -435,30 +932,152 @@ function GradeMathPaperPage() {
               </div>
             </div>
           )}
+
+          {/* Modal xem chi tiết */}
+          {showDetailModal && selectedDetail && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold">Chi tiết kết quả chấm điểm</h3>
+                    <button 
+                      onClick={handleCloseDetail}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-gray-100 p-4 rounded">
+                      <h4 className="font-medium mb-2">Bài làm</h4>
+                      <div className="p-3 bg-gray-200 rounded text-center text-gray-700 mt-2">
+                        <div className="flex items-center justify-center mb-2">
+                          <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                          </svg>
+                        </div>
+                        <p className="font-medium text-gray-900">Thông tin file</p>
+                        <p className="text-sm mt-1">
+                          <span className="font-medium">Tên file:</span> {selectedDetail.fileName}
+                        </p>
+                        {selectedDetail.path && (
+                          <>
+                            <div className="mt-3">
+                              <img 
+                                src={selectedDetail.imageUrl} 
+                                alt="Bài làm của học sinh" 
+                                className="w-full h-auto rounded border border-gray-300"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "https://via.placeholder.com/300x400?text=Không+thể+hiển+thị+ảnh";
+                                  console.error("Không thể tải ảnh từ đường dẫn:", selectedDetail.path);
+                                }}
+                              />
+                            </div>
+                            <p className="text-xs mt-2 text-gray-500">
+                              Đường dẫn: {selectedDetail.path}
+                          </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <div className="bg-gray-100 p-4 rounded h-full overflow-y-auto">
+                        <h4 className="font-medium mb-2">Kết quả chấm điểm</h4>
+                        <pre className="whitespace-pre-wrap text-sm bg-white p-4 rounded shadow-sm h-[calc(100%-2rem)] overflow-y-auto">
+                          {selectedDetail.answer}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleCloseDetail}
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal chỉnh sửa thông tin */}
+          {showEditModal && editingResult && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold">Chỉnh sửa thông tin</h3>
+                    <button 
+                      onClick={handleCancelEdit}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-gray-700 mb-2">Họ và tên</label>
+                      <input
+                        type="text"
+                        name="studentName"
+                        value={editForm.studentName}
+                        onChange={handleEditFormChange}
+                        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-gray-700 mb-2">Lớp</label>
+                      <input
+                        type="text"
+                        name="studentClass"
+                        value={editForm.studentClass}
+                        onChange={handleEditFormChange}
+                        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-gray-700 mb-2">Điểm số</label>
+                      <input
+                        type="text"
+                        name="totalScore"
+                        value={editForm.totalScore}
+                        onChange={handleEditFormChange}
+                        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end mt-6 space-x-2">
+                    <button
+                      onClick={handleCancelEdit}
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={handleSaveEdit}
+                      className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+                    >
+                      Lưu thay đổi
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
-
-      {/* Modal chi tiết */}
-      {showDetailModal && selectedDetail && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Chi tiết bài làm</h3>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="prose max-w-none">
-              <pre className="whitespace-pre-wrap">{selectedDetail.answer}</pre>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

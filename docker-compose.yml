@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  api_rag:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile.api_rag
+    ports:
+      - "8000:8000"
+    restart: always
+    environment:
+      - GENMINI_API_KEY=AIzaSyAqX5bkYluS_QKYSILRVCJHvY6KpSy2-ds
+    volumes:
+      - api_rag_uploads:/app/uploads
+      - ./Backend/documents:/app/documents
+      - ./Backend/chroma_db:/app/chroma_db
+    networks:
+      - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    restart: always
+    environment:
+      - MONGO_URI=mongodb+srv://thanhlct1423:Thanh01042003@giasutoan.mjwwhvn.mongodb.net/?retryWrites=true&w=majority&appName=GiaSuToan
+      - DB_NAME=ChatGiaSu
+      - JWT_SECRET_KEY=your_jwt_secret_key
+      - JWT_ACCESS_TOKEN_EXPIRES=3600
+      - API_RAG_URL=http://host.docker.internal:8000
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - app-network
+    depends_on:
+      - api_rag
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    restart: always
+    environment:
+      - VITE_API_URL=http://backend:5000
+      - VITE_RAG_API_URL=http://api_rag:8000
+    networks:
+      - app-network
+    depends_on:
+      - backend
+      - api_rag
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  backend_data:
+  api_rag_uploads:

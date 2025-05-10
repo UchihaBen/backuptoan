@@ -1,4 +1,4 @@
-import os
+﻿import os
 import chromadb
 from sentence_transformers import SentenceTransformer
 from mongoDB.config import chunks_collection
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # Đường dẫn và cấu hình
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "chroma_db")
-MODEL_NAME = "intfloat/multilingual-e5-large"
+MODEL_NAME = "intfloat/multilingual-e5-base"
 
 # Khởi tạo model và ChromaDB
 sentence_transformer = SentenceTransformer(MODEL_NAME)
@@ -36,11 +36,41 @@ def embed_document_chunks(document_id):
         else:
             doc_id = document_id
             
+        # Convert doc_id to string for consistent comparisons
+        str_doc_id = str(doc_id)
+        
+        logger.info(f"Bắt đầu tạo embedding cho tài liệu {str_doc_id}")
+            
         # Lấy tất cả các chunk của tài liệu từ MongoDB
-        document_chunks = list(chunks_collection.find({"document_id": str(doc_id)}))
+        document_chunks = list(chunks_collection.find({"document_id": str_doc_id}))
         
         if not document_chunks:
+            logger.warning(f"Không tìm thấy chunk nào cho tài liệu {str_doc_id}")
             return {"success": False, "message": "Không tìm thấy chunk nào cho tài liệu này", "chunks_count": 0}
+            
+        # Đầu tiên, xóa hết các embedding cũ của tài liệu này nếu có
+        logger.info(f"Xóa các embedding cũ của tài liệu {str_doc_id} trước khi tạo mới")
+        
+        try:
+            # Tìm các chunk có metadata.document_id khớp với document_id
+            existing_results = collection.get(
+                where={"document_id": str_doc_id},
+                include=["metadatas", "documents", "embeddings"]
+            )
+            
+            if existing_results and len(existing_results["ids"]) > 0:
+                logger.info(f"Tìm thấy {len(existing_results['ids'])} embedding cũ, tiến hành xóa")
+                # Xóa các embedding từ ChromaDB
+                collection.delete(
+                    ids=existing_results["ids"]
+                )
+                logger.info(f"Đã xóa {len(existing_results['ids'])} embedding cũ")
+            else:
+                logger.info(f"Không tìm thấy embedding cũ cho tài liệu {str_doc_id}")
+                
+        except Exception as delete_error:
+            logger.error(f"Lỗi khi xóa embedding cũ: {str(delete_error)}")
+            # Vẫn tiếp tục quá trình embedding mới
             
         # Chuẩn bị dữ liệu để nhúng và lưu vào ChromaDB
         documents = []
@@ -51,6 +81,7 @@ def embed_document_chunks(document_id):
             # Lấy nội dung của chunk
             chunk_content = chunk.get("content", "")
             if not chunk_content:
+                logger.warning(f"Bỏ qua chunk trống: document_id={str_doc_id}, chunk_index={chunk.get('index')}")
                 continue
                 
             # Thêm vào danh sách để nhúng
@@ -58,7 +89,7 @@ def embed_document_chunks(document_id):
             
             # Chuẩn bị metadata
             metadata = {
-                "document_id": str(doc_id),
+                "document_id": str_doc_id,
                 "chunk_id": str(chunk.get("_id")),
                 "chunk_index": chunk.get("index"),
                 "title": chunk.get("title", ""),
@@ -68,18 +99,26 @@ def embed_document_chunks(document_id):
             metadatas.append(metadata)
             
             # Tạo ID duy nhất cho mỗi chunk trong ChromaDB
-            chunk_id = f"doc_{doc_id}_chunk_{chunk.get('index')}"
+            chunk_id = f"doc_{str_doc_id}_chunk_{chunk.get('index')}"
             ids.append(chunk_id)
         
         # Nếu không có nội dung để nhúng
         if not documents:
+            logger.warning(f"Không có nội dung nào để nhúng cho tài liệu {str_doc_id}")
             return {"success": False, "message": "Không có nội dung nào để nhúng", "chunks_count": 0}
             
         # Tạo embedding cho tất cả các nội dung
-        logger.info(f"Đang tạo embedding cho {len(documents)} chunk của tài liệu {doc_id}")
+        logger.info(f"Đang tạo embedding cho {len(documents)} chunk của tài liệu {str_doc_id}")
         embeddings = sentence_transformer.encode(documents).tolist()
         
+        # Log thông tin chi tiết để debug
+        logger.info(f"Số lượng documents: {len(documents)}")
+        logger.info(f"Số lượng embeddings: {len(embeddings)}")
+        logger.info(f"Số lượng metadatas: {len(metadatas)}")
+        logger.info(f"Số lượng ids: {len(ids)}")
+        
         # Lưu vào ChromaDB
+        logger.info(f"Đang thêm {len(documents)} chunk vào ChromaDB")
         collection.add(
             documents=documents,
             embeddings=embeddings,
@@ -87,9 +126,36 @@ def embed_document_chunks(document_id):
             ids=ids
         )
         
+        # Đảm bảo dữ liệu được lưu
+        logger.info("Commit thay đổi vào ChromaDB")
+        # PersistentClient trong ChromaDB 1.0.8 tự động persist data
+        # Không cần gọi persist() method nữa
+        try:
+            # Note: persist() không còn được sử dụng trong ChromaDB 1.0.8
+            # Trong phiên bản mới, dữ liệu được tự động lưu trữ
+            logger.info("ChromaDB tự động lưu trữ dữ liệu")
+        except Exception as persist_error:
+            logger.error(f"Lỗi khi commit ChromaDB: {str(persist_error)}")
+            # Vẫn tiếp tục để kiểm tra kết quả
+        
+        # Kiểm tra lại xem đã lưu thành công chưa
+        try:
+            check_result = collection.get(
+                where={"document_id": str_doc_id},
+                include=["metadatas"]
+            )
+            
+            saved_count = len(check_result["ids"]) if check_result and "ids" in check_result else 0
+            logger.info(f"Kiểm tra lại: Đã lưu {saved_count}/{len(documents)} chunk trong ChromaDB")
+            
+            if saved_count < len(documents):
+                logger.warning(f"Không lưu được đủ số lượng embedding! Đã lưu {saved_count}/{len(documents)}")
+        except Exception as check_error:
+            logger.error(f"Lỗi khi kiểm tra kết quả: {str(check_error)}")
+        
         # Cập nhật trạng thái đã nhúng trong MongoDB
         chunks_collection.update_many(
-            {"document_id": str(doc_id)},
+            {"document_id": str_doc_id},
             {"$set": {"embedding_status": "completed"}}
         )
         
@@ -101,6 +167,8 @@ def embed_document_chunks(document_id):
         
     except Exception as e:
         logger.error(f"Lỗi khi tạo embedding: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {"success": False, "message": f"Lỗi khi tạo embedding: {str(e)}", "chunks_count": 0}
 
 def delete_document_embeddings(document_id):

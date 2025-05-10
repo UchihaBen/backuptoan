@@ -1,11 +1,15 @@
 from flask import Blueprint, request, jsonify
 import requests
 import datetime
+import os
 from bson import ObjectId
 from services.chat_service import save_message, create_conversation, get_conversation_messages, get_user_conversations, delete_conversation
 from middleware.auth_middleware import token_required
 
 chat = Blueprint('chat', __name__)
+
+# Lấy URL của API_RAG từ biến môi trường, mặc định là host.docker.internal:8000
+API_RAG_URL = os.environ.get('API_RAG_URL', 'http://host.docker.internal:8000')
 
 @chat.route('/ask', methods=['POST'])
 @token_required
@@ -35,15 +39,44 @@ def ask_question(current_user):
     user_message_id = save_message(conversation_id, user_id, question)
     
     try:
-        # Gọi API AI để lấy câu trả lời
-        ai_response = requests.post("http://localhost:8000/answer", 
-                                   json={"question": question})
+        # URL cho API_RAG
+        rag_url = f"{API_RAG_URL}/answer"
+        print(f"DEBUG: Đang kết nối tới API RAG qua URL: {rag_url}")
+        
+        # Thông số kết nối
+        timeout_seconds = 30
+        headers = {"Content-Type": "application/json"}
+        payload = {"question": question}
+        
+        # Gửi request tới API service
+        print(f"DEBUG: Gửi payload: {str(payload)}")
+        ai_response = requests.post(
+            rag_url, 
+            json=payload, 
+            timeout=timeout_seconds,
+            headers=headers
+        )
+        
+        print(f"DEBUG: Nhận phản hồi từ {rag_url} - Status code: {ai_response.status_code}")
         
         if ai_response.status_code == 200:
-            bot_response = ai_response.json().get("answer", "Không thể lấy câu trả lời")
+            response_data = ai_response.json()
+            print(f"DEBUG: Nội dung phản hồi từ {rag_url}: {str(response_data)[:100]}...")
+            bot_response = response_data.get("answer", "Không thể lấy câu trả lời")
         else:
-            bot_response = "AI service không phản hồi. Vui lòng thử lại sau."
+            error_text = ai_response.text[:200] if ai_response.text else "Không có nội dung phản hồi"
+            print(f"DEBUG: Lỗi từ {rag_url}: Status {ai_response.status_code} - {error_text}")
+            bot_response = f"Lỗi từ AI service: Status code {ai_response.status_code}"
+    except requests.exceptions.ConnectTimeout:
+        print(f"DEBUG: Lỗi timeout khi kết nối tới {rag_url} sau {timeout_seconds} giây")
+        bot_response = "Lỗi kết nối đến AI service: Timeout khi kết nối"
+    except requests.exceptions.ConnectionError as e:
+        print(f"DEBUG: Lỗi kết nối đến {rag_url}: {str(e)}")
+        bot_response = f"Lỗi kết nối đến AI service: Không thể kết nối đến API"
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"DEBUG: Lỗi không xác định: {str(e)}")
         bot_response = f"Lỗi kết nối đến AI service: {str(e)}"
     
     # Lưu câu trả lời vào DB
