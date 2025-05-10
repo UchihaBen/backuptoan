@@ -4,6 +4,7 @@ from sentence_transformers import SentenceTransformer
 from mongoDB.config import chunks_collection
 from bson import ObjectId
 import logging
+import time
 
 # Thiết lập logging
 logging.basicConfig(level=logging.INFO)
@@ -117,22 +118,56 @@ def embed_document_chunks(document_id):
         logger.info(f"Số lượng metadatas: {len(metadatas)}")
         logger.info(f"Số lượng ids: {len(ids)}")
         
-        # Lưu vào ChromaDB
-        logger.info(f"Đang thêm {len(documents)} chunk vào ChromaDB")
-        collection.add(
-            documents=documents,
-            embeddings=embeddings,
-            metadatas=metadatas,
-            ids=ids
-        )
+        # Lưu vào ChromaDB with retries - Thêm cơ chế retry để đảm bảo dữ liệu được lưu
+        max_retries = 3
+        retry_count = 0
+        success = False
+        
+        while retry_count < max_retries and not success:
+            try:
+                # Lưu vào ChromaDB
+                logger.info(f"Đang thêm {len(documents)} chunk vào ChromaDB (lần thử {retry_count + 1})")
+                collection.add(
+                    documents=documents,
+                    embeddings=embeddings,
+                    metadatas=metadatas,
+                    ids=ids
+                )
+                
+                # Xác minh ngay lập tức dữ liệu đã được lưu
+                verification = collection.get(
+                    where={"document_id": str_doc_id},
+                    include=["metadatas"]
+                )
+                
+                if verification and "ids" in verification and len(verification["ids"]) == len(documents):
+                    logger.info(f"Xác minh thành công: Đã lưu {len(verification['ids'])}/{len(documents)} chunk")
+                    success = True
+                else:
+                    logger.warning(f"Xác minh thất bại: Chỉ tìm thấy {len(verification.get('ids', []))}/{len(documents)} chunk. Thử lại...")
+                    retry_count += 1
+                    time.sleep(1)  # Đợi 1 giây trước khi thử lại
+                
+            except Exception as add_error:
+                logger.error(f"Lỗi khi thêm vào ChromaDB (lần thử {retry_count + 1}): {str(add_error)}")
+                retry_count += 1
+                if retry_count < max_retries:
+                    logger.info(f"Thử lại lần {retry_count + 1}...")
+                    time.sleep(1)  # Đợi 1 giây trước khi thử lại
         
         # Đảm bảo dữ liệu được lưu
         logger.info("Commit thay đổi vào ChromaDB")
         # PersistentClient trong ChromaDB 1.0.8 tự động persist data
         # Không cần gọi persist() method nữa
         try:
-            # Note: persist() không còn được sử dụng trong ChromaDB 1.0.8
-            # Trong phiên bản mới, dữ liệu được tự động lưu trữ
+            # Thử gọi persist() nếu phiên bản cũ hơn hỗ trợ
+            try:
+                if hasattr(chroma_client, "persist"):
+                    chroma_client.persist()
+                    logger.info("Đã gọi persist() thành công")
+            except Exception as persist_error:
+                logger.warning(f"persist() không được hỗ trợ hoặc lỗi: {str(persist_error)}")
+            
             logger.info("ChromaDB tự động lưu trữ dữ liệu")
         except Exception as persist_error:
             logger.error(f"Lỗi khi commit ChromaDB: {str(persist_error)}")
@@ -150,14 +185,17 @@ def embed_document_chunks(document_id):
             
             if saved_count < len(documents):
                 logger.warning(f"Không lưu được đủ số lượng embedding! Đã lưu {saved_count}/{len(documents)}")
+                if saved_count == 0:
+                    return {"success": False, "message": f"Không lưu được dữ liệu vào ChromaDB sau {max_retries} lần thử", "chunks_count": 0}
+            
+            # Cập nhật trạng thái đã nhúng trong MongoDB sau khi đã xác minh dữ liệu có trong ChromaDB
+            chunks_collection.update_many(
+                {"document_id": str_doc_id},
+                {"$set": {"embedding_status": "completed", "embedding_verified": True}}
+            )
         except Exception as check_error:
             logger.error(f"Lỗi khi kiểm tra kết quả: {str(check_error)}")
-        
-        # Cập nhật trạng thái đã nhúng trong MongoDB
-        chunks_collection.update_many(
-            {"document_id": str_doc_id},
-            {"$set": {"embedding_status": "completed"}}
-        )
+            return {"success": False, "message": f"Lỗi khi xác minh kết quả: {str(check_error)}", "chunks_count": 0}
         
         return {
             "success": True, 

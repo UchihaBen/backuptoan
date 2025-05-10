@@ -606,7 +606,11 @@ def embed_document(document_id):
             # Cập nhật trạng thái đã embed của tài liệu
             documents_collection.update_one(
                 {"_id": doc_id},
-                {"$set": {"embedding_status": "completed"}}
+                {"$set": {
+                    "embedding_status": "completed",
+                    "embedding_verified": True,
+                    "last_embedded": datetime.now()
+                }}
             )
             
             return jsonify({
@@ -615,10 +619,36 @@ def embed_document(document_id):
                 "chunks_count": result["chunks_count"]
             }), 200
         else:
+            # Cập nhật trạng thái lỗi embedding
+            documents_collection.update_one(
+                {"_id": doc_id},
+                {"$set": {
+                    "embedding_status": "failed",
+                    "embedding_error": result.get("message", "Unknown error")
+                }}
+            )
+            
+            current_app.logger.error(f"Lỗi embedding: {result.get('message', 'Unknown error')}")
             return jsonify({"error": result["message"]}), 400
             
     except Exception as e:
-        current_app.logger.error(f"Error embedding document: {str(e)}")
+        # Ghi lại stack trace để gỡ lỗi
+        import traceback
+        error_details = traceback.format_exc()
+        current_app.logger.error(f"Error embedding document:\n{error_details}")
+        
+        try:
+            # Cập nhật trạng thái lỗi vào document
+            documents_collection.update_one(
+                {"_id": doc_id},
+                {"$set": {
+                    "embedding_status": "failed",
+                    "embedding_error": str(e)
+                }}
+            )
+        except:
+            pass
+            
         return jsonify({"error": f"Không thể tạo embedding cho tài liệu: {str(e)}"}), 500
 
 @documents_bp.route('/<document_id>/embedding-status', methods=['GET'])
@@ -647,9 +677,28 @@ def get_embedding_status(document_id):
         result = embedding_service.get_embedding_status(doc_id)
         
         if result["success"]:
+            # Thêm thông tin từ document
+            result["document_status"] = document.get("embedding_status", "unknown")
+            result["embedding_verified"] = document.get("embedding_verified", False)
+            
+            # Thêm thông tin lỗi nếu có
+            if document.get("embedding_status") == "failed":
+                result["embedding_error"] = document.get("embedding_error", "Unknown error")
+                
+            # Thêm thời gian embedding cuối cùng nếu có
+            if "last_embedded" in document:
+                if isinstance(document["last_embedded"], datetime):
+                    result["last_embedded"] = document["last_embedded"].strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    result["last_embedded"] = str(document["last_embedded"])
+                    
             return jsonify(result), 200
         else:
-            return jsonify({"error": result.get("message", "Lỗi không xác định")}), 400
+            # Thêm thông tin lỗi từ document nếu có
+            if document.get("embedding_status") == "failed":
+                result["document_error"] = document.get("embedding_error", "Unknown error")
+                
+            return jsonify({"error": result.get("message", "Lỗi không xác định"), "details": result}), 400
             
     except Exception as e:
         current_app.logger.error(f"Error getting embedding status: {str(e)}")
