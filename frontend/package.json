@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
+    "build": "npm run build:css && vite build",
+    "build:css": "tailwindcss -i ./src/index.css -o ./src/output.css",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "start": "react-scripts start",
     "test": "react-scripts test",

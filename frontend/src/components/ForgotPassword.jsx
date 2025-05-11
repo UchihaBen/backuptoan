@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { config } from '../config';
 
 function ForgotPassword() {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ function ForgotPassword() {
     setIsLoading(true);
     
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/forgot-password", {
+      const response = await axios.post(`${config.apiEndpoints.auth}/forgot-password`, {
         email
       });
       
@@ -90,7 +91,7 @@ function ForgotPassword() {
     setIsLoading(true);
     
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/reset-password", {
+      const response = await axios.post(`${config.apiEndpoints.auth}/reset-password`, {
         token: resetToken,
         password: newPassword
       });

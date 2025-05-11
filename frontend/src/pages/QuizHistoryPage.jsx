@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { config } from '../config';
 
 export function QuizHistoryPage() {
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ export function QuizHistoryPage() {
           try {
             console.log("Fetching records for logged in user:", userId);
             const userResponse = await axios.get(
-              `http://localhost:5000/api/quiz/quiz-attempts/${userId}?${params.toString()}`,
+              `${config.apiEndpoints.quiz}/quiz-attempts/${userId}?${params.toString()}`,
               {
                 headers: {
                   Authorization: `Bearer ${token}`
@@ -77,7 +78,7 @@ export function QuizHistoryPage() {
         try {
           console.log("Fetching anonymous records for topic:", topicName);
           const anonymousResponse = await axios.get(
-            `http://localhost:5000/api/quiz/anonymous-attempts?${params.toString()}`
+            `${config.apiEndpoints.quiz}/anonymous-attempts?${params.toString()}`
           );
           
           if (anonymousResponse.data?.attempts) {

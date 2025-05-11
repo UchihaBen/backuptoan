@@ -9,6 +9,9 @@ RUN npm ci
 # Sao chép toàn bộ mã nguồn
 COPY . .
 
+# Build Tailwind CSS
+RUN npx tailwindcss -i ./src/index.css -o ./src/output.css
+
 # Build ứng dụng
 RUN npm run build
 

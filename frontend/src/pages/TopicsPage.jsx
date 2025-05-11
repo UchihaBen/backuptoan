@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { TopicHistoryButton } from "../components/TopicHistoryButton";
+import { config } from '../config';
 
 function TopicsPage() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ function TopicsPage() {
     setLoading(true);
     try {
       // Sử dụng API endpoint dành cho người dùng thay vì admin
-      const response = await axios.get("http://localhost:5000/api/admin/topics", {
+      const response = await axios.get(`${config.apiEndpoints.admin}/topics`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

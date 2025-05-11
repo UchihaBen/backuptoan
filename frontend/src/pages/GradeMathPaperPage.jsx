@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from 'axios';
+import { config } from '../config';
 
 function GradeMathPaperPage() {
   const [files, setFiles] = useState([]); // Các file ảnh bài làm học sinh
@@ -81,7 +82,7 @@ function GradeMathPaperPage() {
     //     },
     //     body: JSON.stringify(postData)
     //   });
-        const response = await axios.post("http://127.0.0.1:8000/grade_math_paper", 
+        const response = await axios.post(config.apiEndpoints.ragApi.gradeMathPaper, 
             postData
         );
         console.log(`Đang chấm điểm ảnh: ${imagePath}`);
@@ -158,7 +159,7 @@ function GradeMathPaperPage() {
     // Create a display URL for the image
     const resultWithImageUrl = {
       ...result,
-      imageUrl: result.path ? `http://127.0.0.1:8000/static/${result.path.replace(/^uploads[\/\\]/, '')}` : null
+      imageUrl: result.path ? `${config.RAG_API_URL}/static/${result.path.replace(/^uploads[\/\\]/, '')}` : null
     };
     
     console.log("Image URL for detail view:", resultWithImageUrl.imageUrl);
@@ -250,7 +251,7 @@ function GradeMathPaperPage() {
       // Nếu có đường dẫn ảnh, gọi API để xóa ảnh từ server
       if (imagePath) {
         console.log('Đang xóa ảnh:', imagePath);
-        await axios.post('http://127.0.0.1:8000/delete_image', { file_path: imagePath });
+        await axios.post(config.apiEndpoints.ragApi.deleteImage, { file_path: imagePath });
         console.log('Đã xóa ảnh:', imagePath);
       } else {
         console.warn('Không có đường dẫn ảnh để xóa');
@@ -575,7 +576,7 @@ function GradeMathPaperPage() {
         
         console.log(`Đang tải file: ${file.name} (lần thử ${retryCount + 1}/${maxRetries})`);
         
-        const response = await axios.post("http://127.0.0.1:8000/upload_image", formData, {
+        const response = await axios.post(config.apiEndpoints.ragApi.uploadImage, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
@@ -649,7 +650,7 @@ function GradeMathPaperPage() {
       
       // Gọi API xuất Excel
       const response = await axios.post(
-        "http://127.0.0.1:8000/export_excel", 
+        config.apiEndpoints.ragApi.exportExcel, 
         { results: exportData },
         { 
           responseType: 'blob',  // Quan trọng để nhận file

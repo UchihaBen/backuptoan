@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { config } from '../config';
 
 function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = true }) {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
       const authHeader = `Bearer ${token}`;
       console.log("Auth header length:", authHeader.length);
       
-      const response = await axios.get("http://localhost:5000/api/chat/history", {
+      const response = await axios.get(`${config.apiEndpoints.chat}/history`, {
         headers: {
           Authorization: authHeader
         }
@@ -72,7 +73,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
         
         // Gọi API để xác định chủ đề từ lịch sử trò chuyện
         console.log("Gửi đến API chat_topic:", messageToSend);
-        const res = await axios.post("http://127.0.0.1:8000/chat_topic", { "question": messageToSend });
+        const res = await axios.post(config.apiEndpoints.ragApi.chatTopic, { "question": messageToSend });
         const topic = res.data.answer;
         console.log("Chủ đề nhận được:", topic);
         
@@ -102,7 +103,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
   const handleNewConversation = async () => {
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/chat/conversations",
+        `${config.apiEndpoints.chat}/conversations`,
         { title: `Cuộc hội thoại (${new Date().toLocaleString()})` },
         {
           headers: {
@@ -140,7 +141,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
   const confirmDelete = async (conversationId) => {
     try {
       await axios.delete(
-        `http://localhost:5000/api/chat/conversations/${conversationId}`,
+        `${config.apiEndpoints.chat}/conversations/${conversationId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`

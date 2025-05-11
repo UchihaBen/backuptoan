@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { config } from '../config';
 
 function QuizSetupPage() {
   const location = useLocation();
@@ -53,7 +54,7 @@ function QuizSetupPage() {
   const fetchQuestionStats = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:5000/api/admin/topics/${topicId}`, {
+      const response = await axios.get(`${config.apiEndpoints.admin}/topics/${topicId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

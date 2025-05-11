@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { config } from '../config';
 
 export function QuizPage() {
   const [quizData, setQuizData] = useState(null);
@@ -71,7 +72,7 @@ export function QuizPage() {
 
       // Nếu có topicId, lấy câu hỏi từ bộ sưu tập đã lưu
       if (topicId) {
-        const response = await axios.get(`http://localhost:5000/api/admin/topics/${topicId}`, {
+        const response = await axios.get(`${config.apiEndpoints.admin}/topics/${topicId}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -248,7 +249,7 @@ export function QuizPage() {
       } else {
         // Nếu không có topicId, tạo câu hỏi mới từ GenMini
       const quizRes = await axios.post(
-        "http://127.0.0.1:8000/Multiple_Choice_Questions",
+        config.apiEndpoints.ragApi.multipleChoice,
         { question: topic }
       );
       console.log("quizRes.data.answer", quizRes.data.answer);
@@ -322,7 +323,7 @@ export function QuizPage() {
 
       // Gọi API nhận xét
       const response = await axios.post(
-        "http://127.0.0.1:8000/Quiz_Feedback",
+        config.apiEndpoints.ragApi.quizFeedback,
         {question: textData},
         { timeout: 30000 } // Tăng timeout lên 30s vì API nhận xét có thể mất thời gian
       );
@@ -479,7 +480,7 @@ export function QuizPage() {
     
     // Đầu tiên, gọi API nhận xét
     axios.post(
-      "http://127.0.0.1:8000/Quiz_Feedback",
+      config.apiEndpoints.ragApi.quizFeedback,
       { question: JSON.stringify(feedbackData) },
       { timeout: 30000 } // Tăng timeout lên 30s vì API nhận xét có thể mất thời gian
     )
@@ -493,7 +494,7 @@ export function QuizPage() {
       
       // Sau khi có nhận xét, lưu dữ liệu bài làm vào cơ sở dữ liệu
       return axios.post(
-        "http://localhost:5000/api/quiz/quiz-attempts/save",
+        `${config.apiEndpoints.quiz}/quiz-attempts/save`,
         quizAttemptData
       );
     })
@@ -526,7 +527,7 @@ export function QuizPage() {
       
       // Thử lưu vào DB bất kể có lỗi nhận xét
       axios.post(
-        "http://localhost:5000/api/quiz/quiz-attempts/save",
+        `${config.apiEndpoints.quiz}/quiz-attempts/save`,
         quizAttemptData
       ).then(saveRes => {
         console.log("Đã lưu bài làm (không có nhận xét):", saveRes?.data);
@@ -586,7 +587,7 @@ export function QuizPage() {
     if (topicId) {
       try {
         // Trước khi chuyển đến trang setup, lấy thông tin số lượng câu hỏi thực tế
-        const response = await axios.get(`http://localhost:5000/api/admin/topics/${topicId}`, {
+        const response = await axios.get(`${config.apiEndpoints.admin}/topics/${topicId}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { config } from '../config';
 
 // Xác định môi trường
 const env = import.meta.env.MODE || 'development';
@@ -6,14 +7,11 @@ const isProduction = env === 'production';
 
 // Log environment for debugging
 console.log('Environment:', env);
-console.log('Vite Environment Variables:', import.meta.env);
+console.log('API URLs:', config.API_URL, config.RAG_API_URL);
 
-// API URLs dựa trên môi trường và biến môi trường
-let API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
-let RAG_API_URL = import.meta.env.VITE_RAG_API_URL || 'http://127.0.0.1:8000';
-
-console.log('Using API URL:', API_URL);
-console.log('Using RAG API URL:', RAG_API_URL);
+// Sử dụng API URL từ file cấu hình
+const API_URL = config.API_URL;
+const RAG_API_URL = config.RAG_API_URL;
 
 // Tạo instance Axios cho API chính (xử lý tài khoản, chức năng chung)
 const api = axios.create({
@@ -108,4 +106,4 @@ ragApi.interceptors.response.use(
   }
 );
 
-export { api, authApi, ragApi, API_URL, RAG_API_URL };
+export { api, authApi, ragApi, API_URL, RAG_API_URL, config };

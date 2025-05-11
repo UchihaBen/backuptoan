@@ -1,6 +1,8 @@
 flask==3.1.0
 flask-cors==5.0.1
 flask-jwt-extended==4.7.1
+# QUAN TRỌNG: KHÔNG thêm bson riêng lẻ vào requirements vì sẽ gây xung đột với bson của pymongo
+# pymongo đã bao gồm bson trong package của nó
 pymongo==4.12.1
 python-dotenv==1.1.0
 bcrypt==4.3.0
@@ -11,7 +13,7 @@ ChromaDB==1.0.8
 PyPDF2==3.0.1
 python-docx==1.0.1
 tiktoken==0.5.1
-pandas==2.2.0
+pandas==2.2.3
 passlib==1.7.4
 pdfplumber==0.10.3
 fastapi==0.115.9

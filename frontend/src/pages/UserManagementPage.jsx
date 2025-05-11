@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { config } from '../config';
 
 function UserManagementPage() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ function UserManagementPage() {
     setError(null);
     
     try {
-      const response = await axios.get("http://localhost:5000/api/admin/users", {
+      const response = await axios.get(`${config.apiEndpoints.admin}/users`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -43,7 +44,7 @@ function UserManagementPage() {
     }
     
     try {
-      await axios.delete(`http://localhost:5000/api/admin/users/${userId}`, {
+      await axios.delete(`${config.apiEndpoints.admin}/users/${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -61,7 +62,7 @@ function UserManagementPage() {
     const newRole = currentRole === "admin" ? "user" : "admin";
     
     try {
-      await axios.patch(`http://localhost:5000/api/admin/users/${userId}/role`, 
+      await axios.patch(`${config.apiEndpoints.admin}/users/${userId}/role`, 
         { role: newRole },
         {
           headers: {

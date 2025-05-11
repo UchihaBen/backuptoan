@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { config } from '../config';
 
 function QuestionManagementPage() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ function QuestionManagementPage() {
   const fetchSavedTopics = async () => {
     setLoadingSavedTopics(true);
     try {
-      const response = await axios.get("http://localhost:5000/api/admin/questions", {
+      const response = await axios.get(`${config.apiEndpoints.admin}/questions`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -70,7 +71,7 @@ function QuestionManagementPage() {
     
     try {
       // Gọi API lấy chi tiết bộ câu hỏi
-      const response = await axios.get(`http://localhost:5000/api/admin/questions/${topicId}`, {
+      const response = await axios.get(`${config.apiEndpoints.admin}/questions/${topicId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -191,7 +192,7 @@ function QuestionManagementPage() {
     setError(null);
     
     try {
-      const response = await axios.post("http://127.0.0.1:8000/Multiple_Choice_Questions", 
+      const response = await axios.post(config.apiEndpoints.ragApi.multipleChoice, 
         { question: topic }
       );
       
@@ -386,7 +387,7 @@ function QuestionManagementPage() {
   const updateExistingQuestionSet = async (topicId, data) => {
     console.log(`Cập nhật bộ câu hỏi có ID ${topicId}`, data);
     try {
-      const response = await axios.put(`http://localhost:5000/api/admin/questions/${topicId}`, 
+      const response = await axios.put(`${config.apiEndpoints.admin}/questions/${topicId}`, 
         data,
         {
           headers: {
@@ -446,7 +447,7 @@ function QuestionManagementPage() {
         console.log("Đã cập nhật chủ đề hiện tại:", response.data);
       } else {
         // Tạo mới nếu là chủ đề mới
-        response = await axios.post("http://localhost:5000/api/admin/questions", 
+        response = await axios.post(`${config.apiEndpoints.admin}/questions`, 
           questionData,
           {
             headers: {
@@ -526,7 +527,7 @@ function QuestionManagementPage() {
     setLoading(true);
     
     try {
-      const response = await axios.delete(`http://localhost:5000/api/admin/questions/${topicId}`, {
+      const response = await axios.delete(`${config.apiEndpoints.admin}/questions/${topicId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

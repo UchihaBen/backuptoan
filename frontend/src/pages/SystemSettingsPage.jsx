@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { config } from '../config';
 
 function SystemSettingsPage() {
   const navigate = useNavigate();
@@ -14,8 +15,8 @@ function SystemSettingsPage() {
     enableUserFeedback: true,
     systemMaintenanceMode: false,
     apiEndpoints: {
-      aiGenerationUrl: "http://127.0.0.1:8000",
-      backendUrl: "http://localhost:5000"
+      aiGenerationUrl: config.apiEndpoints.ragApi.answer.split('/answer')[0],
+      backendUrl: config.API_URL
     },
     chunkSettings: {
       chunkSize: 1000,
