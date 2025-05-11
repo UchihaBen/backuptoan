@@ -1134,6 +1134,32 @@ function SystemSettingsPage() {
         </div>
 
         <div className="p-6">
+          <h1 className="text-2xl font-bold mb-6">Cài đặt hệ thống</h1>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-lg font-semibold mb-4">Quản lý tài nguyên</h2>
+              <p className="text-gray-600 mb-4">Tải lên và quản lý tài liệu, hình ảnh cho hệ thống</p>
+              <button 
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                onClick={() => alert('Tính năng đang phát triển')}
+              >
+                Quản lý tài liệu
+              </button>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-lg font-semibold mb-4">Cấu hình hệ thống</h2>
+              <p className="text-gray-600 mb-4">Điều chỉnh các thiết lập cho hệ thống như thời gian làm bài, số câu hỏi</p>
+              <button 
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                onClick={() => alert('Tính năng đang phát triển')}
+              >
+                Thiết lập cấu hình
+              </button>
+            </div>
+          </div>
+          
           {error && (
             <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
               {error}

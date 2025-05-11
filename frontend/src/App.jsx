@@ -19,6 +19,7 @@ import SystemSettingsPage from "./pages/SystemSettingsPage";
 import GradeMathPaperPage from "./pages/GradeMathPaperPage";
 import TopicsPage from "./pages/TopicsPage";
 import QuizSetupPage from "./pages/QuizSetupPage";
+import GenerateSlidesPage from "./pages/GenerateSlidesPage";
 
 function App() {
   return (
@@ -40,7 +41,7 @@ function App() {
       <Route path="/admin/questions" element={<QuestionManagementPage />} />
       <Route path="/admin/system-settings" element={<SystemSettingsPage />} />
       <Route path="/admin/GradeMathPaperPage" element={<GradeMathPaperPage />} />
-      
+      <Route path="/admin/generate-slides" element={<GenerateSlidesPage />} />
     </Routes>
   );
 }

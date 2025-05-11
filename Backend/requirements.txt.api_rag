@@ -12,4 +12,5 @@ python-dotenv==1.1.0
 tiktoken==0.5.1
 # QUAN TRỌNG: KHÔNG thêm bson riêng lẻ vào requirements vì sẽ gây xung đột với bson của pymongo
 # ChromaDB sẽ cài đặt pymongo và đã bao gồm bson trong package của nó
-PyPDF2==3.0.1 
+PyPDF2==3.0.1
+python-pptx==1.0.2 

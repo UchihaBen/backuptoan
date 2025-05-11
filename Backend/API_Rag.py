@@ -1,9 +1,9 @@
 import os
 import chromadb
 import fastapi
-from fastapi import FastAPI, UploadFile, File, Response
+from fastapi import FastAPI, UploadFile, File, Response, Form, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
@@ -310,7 +310,7 @@ Bạn là một trợ lý AI chuyên tạo câu hỏi trắc nghiệm Toán họ
     TRÁNH sinh những câu hỏi cần nhìn hình hoặc dựa vào bảng biến thiên
     ĐÁP ÁN VÀ LỜI GIẢI PHẢI ĐÚNG VÀ ĂN KHỚP VỚI NHAU.CHỈ ĐƯỢC PHÉP CÓ 1 ĐÁP ÁN ĐÚNG
     Tránh lỗi sai định dạng JSON
-    Lưu ý thêm xuống dòng phù hơp để trình bày đẹp hơn
+    Lưu ý thêm xuống dòng phù hợp để trình bày đẹp hơn
     Phải sinh đủ 10 câu hỏi không được thiếu câu nào.
     """
         ]
@@ -741,6 +741,100 @@ def Grade_math_paper(student_image_path, answer_key, model_name='gemini-2.0-flas
         print(f"⚠️ Lỗi khi gọi LLM API: {e}")
         return f"⚠️ Lỗi khi chấm điểm: {e}"
 
+def generate_Slide(question, context):
+    try:
+        model_gen = genai.GenerativeModel('gemini-2.0-flash')
+        input_parts = [
+            f"""
+            # Hướng Dẫn Tạo Slide Bài Giảng Toán Học
+
+## 🤖 Vai Trò
+Bạn là một trợ lý AI chuyên tạo nội dung slide bài giảng toán học, giúp giáo viên chuẩn bị giáo án.
+
+## 📚 Đầu Vào
+📖 Thông tin từ sách giáo khoa:
+""" + context + """
+
+❓ Chủ đề bài giảng:
+""" + question + """
+
+## 🎯 Nguyên Tắc Tạo Slide
+1. Yêu Cầu Cơ Bản:
+   - Tạo 5-10 slide liên quan trực tiếp đến chủ đề
+   - Nội dung dựa trên thông tin từ sách giáo khoa
+   - Đảm bảo tính sư phạm và logic của bài giảng
+
+2. Chiến Lược Chi Tiết:
+   - Mỗi slide có cấu trúc rõ ràng với tiêu đề và nội dung
+   - Các slide được sắp xếp theo trình tự logic: giới thiệu khái niệm, phát triển, ví dụ, bài tập
+   - Phù hợp với cấp độ học sinh THCS hoặc THPT
+
+3. **Lưu ý quan trọng:**  
+   - **Trả về kết quả định dạng JSON**
+   - Nội dung slide có thể sử dụng cú pháp markdown, LaTeX
+   - Phần LaTeX sẽ được xử lý trong PowerPoint
+
+## 📝 Cấu Trúc JSON
+```json
+[
+  {
+    "slide_number": 1,
+    "title": "Tiêu đề slide",
+    "sections": [
+      {
+        "heading": "Tiêu đề phần",
+        "content": "Nội dung phần"
+      },
+      ...
+    ],
+    "notes": "Ghi chú dành cho giáo viên (không bắt buộc)"
+  },
+  ...
+]
+```
+
+## 🔢 Các Loại Slide Cần Tạo
+1. **Slide Trang Bìa (Slide 1)**:
+   - Tiêu đề chủ đề
+   - Tên môn học: Toán học
+   - Cấp độ phù hợp
+
+2. **Slide Mục Tiêu Bài Học**:
+   - Kiến thức học sinh sẽ đạt được
+   - Kỹ năng sẽ rèn luyện
+
+3. **Slide Nội Dung**:
+   - Khái niệm, định nghĩa
+   - Công thức, tính chất
+   - Ví dụ minh họa
+   - Cách giải quyết bài toán
+
+4. **Slide Ví Dụ**:
+   - Ví dụ từ đơn giản đến phức tạp
+   - Phương pháp giải chi tiết
+
+5. **Slide Bài Tập**:
+   - Bài tập áp dụng
+   - Bài tập nâng cao (tùy chọn)
+
+6. **Slide Tổng Kết**:
+   - Ôn lại kiến thức chính
+   - Kết nối với bài học tiếp theo
+
+⚠️ Lưu Ý QUAN TRỌNG:
+- Nếu không đủ thông tin: Trả về thông báo lỗi
+- Ưu tiên sử dụng thuật ngữ từ sách giáo khoa
+- Đảm bảo cấu trúc JSON chính xác
+- Nội dung phải khoa học, chính xác về mặt toán học
+            """
+        ]
+
+        response = model_gen.generate_content(input_parts)
+        return response.text.strip() if response else "❌ Không có phản hồi từ GenMini."
+    except Exception as e:
+        print(f"⚠️ Lỗi khi gọi GenMini API: {e}")
+        return "⚠️ Lỗi khi gọi GenMini API."
+
 # API gọi tới hàm generate_answer để trả lời câu hỏihỏi
 @app.post("/answer")
 async def question(request: QuestionRequest):
@@ -787,6 +881,134 @@ async def Multiple_Choice_Questions(request: QuestionRequest):
     answer = generate_Multiple_Choice_Questions(question, context)
 
     return {"question": question, "answer": answer, "retrieved_chunks": retrieved_chunks}
+
+@app.post("/Generate_Slide")
+async def Generate_Slide_endpoint(request: QuestionRequest):
+    question = request.question
+    retrieved_chunks = search_similar_chunks(question, top_k=3)
+
+    if not retrieved_chunks:
+        return {"question": question, "answer": "❌ Không tìm thấy tài liệu phù hợp."}
+
+    context = "\n\n".join(f"{chunk['content']}" for chunk in retrieved_chunks)
+    
+    # Lấy nội dung slide dạng text
+    text_response = generate_Slide(question, context)
+    
+    # Parse text thành JSON
+    try:
+        import json
+        import re
+        
+        # Xử lý text để lấy phần JSON
+        json_text = re.sub(r'```json\s*|\s*```', '', text_response)
+        slides_data = json.loads(json_text.strip())
+        
+        # Tạo PowerPoint
+        try:
+            from pptx import Presentation
+            from pptx.util import Inches, Pt
+            from pptx.enum.text import PP_ALIGN
+            from pptx.dml.color import RGBColor
+            import io
+            
+            # Tạo presentation
+            prs = Presentation()
+            
+            # Xử lý từng slide
+            for i, slide_info in enumerate(slides_data):
+                try:
+                    # Tạo slide với layout Title and Content
+                    slide = prs.slides.add_slide(prs.slide_layouts[1])
+                    
+                    # --- Tiêu đề slide ---
+                    title_shape = slide.shapes.title
+                    title_shape.text = slide_info.get("title", f"Slide {i+1}")
+                    title_run = title_shape.text_frame.paragraphs[0].runs[0]
+                    title_run.font.size = Pt(32)
+                    title_run.font.bold = True
+                    title_run.font.name = "Arial"
+                    
+                    # --- Nội dung ---
+                    content_box = slide.placeholders[1]
+                    content_frame = content_box.text_frame
+                    content_frame.clear()
+                    content_frame.word_wrap = True
+                    
+                    # Thêm từng section
+                    for section in slide_info.get("sections", []):
+                        # Heading
+                        p_heading = content_frame.add_paragraph()
+                        p_heading.text = section.get("heading", "")
+                        p_heading.font.size = Pt(20)
+                        p_heading.font.bold = True
+                        p_heading.font.name = "Arial"
+                        p_heading.alignment = PP_ALIGN.LEFT
+                        p_heading.space_after = Pt(2)
+                        
+                        # Nội dung
+                        content_text = section.get("content", "")
+                        for line in content_text.strip().split('\n'):
+                            p_content = content_frame.add_paragraph()
+                            p_content.text = line.strip()
+                            p_content.font.size = Pt(18)
+                            p_content.font.name = "Arial"
+                            p_content.alignment = PP_ALIGN.LEFT
+                            p_content.space_after = Pt(6)
+                            if line.strip().startswith("-"):
+                                p_content.level = 1
+                    
+                    # --- Ghi chú ---
+                    if "notes" in slide_info:
+                        notes = slide.notes_slide.notes_text_frame
+                        notes.clear()
+                        p = notes.add_paragraph()
+                        p.text = slide_info.get("notes", "")
+                        p.font.size = Pt(14)
+                        p.font.italic = True
+                except Exception as slide_error:
+                    print(f"Error processing slide {i+1}: {slide_error}")
+            
+            # Lưu file PowerPoint vào buffer
+            ppt_buffer = io.BytesIO()
+            prs.save(ppt_buffer)
+            ppt_buffer.seek(0)
+            
+            # Encode PowerPoint buffer thành base64
+            import base64
+            ppt_base64 = base64.b64encode(ppt_buffer.read()).decode('utf-8')
+            
+            # Trả về cả JSON và PowerPoint base64
+            return {
+                "question": question, 
+                "answer": text_response, 
+                "retrieved_chunks": retrieved_chunks,
+                "slides_data": slides_data,
+                "ppt_base64": ppt_base64
+            }
+            
+        except Exception as ppt_error:
+            print(f"Error creating PowerPoint: {ppt_error}")
+            import traceback
+            traceback.print_exc()
+            # Trả về JSON nếu có lỗi khi tạo PowerPoint
+            return {
+                "question": question, 
+                "answer": text_response, 
+                "retrieved_chunks": retrieved_chunks,
+                "slides_data": slides_data,
+                "error": f"Lỗi khi tạo PowerPoint: {str(ppt_error)}"
+            }
+            
+    except Exception as json_error:
+        print(f"Error parsing JSON: {json_error}")
+        # Trả về text gốc nếu không parse được JSON
+        return {
+            "question": question, 
+            "answer": text_response, 
+            "retrieved_chunks": retrieved_chunks,
+            "error": f"Lỗi khi parse JSON: {str(json_error)}"
+        }
 
 @app.post("/chat_topic")
 async def chat_topic(request: QuestionRequest):
@@ -836,68 +1058,6 @@ async def grade_math_paper(request: GradeRequest):
         return {"student_image_path": student_image_path, "answer": answer}
     except Exception as e:
         return {"error": str(e)}
-
-# def generate_admin_questions(topic):
-#     try:
-#         model_gen = genai.GenerativeModel('gemini-2.0-flash') 
-#         input_parts = [
-#             f"""
-#             Tạo một bộ câu hỏi trắc nghiệm về chủ đề "{topic}" để sử dụng trong hệ thống ôn tập toán học. 
-            
-#             Hãy tạo 5 câu hỏi ở các mức độ khác nhau (2 câu dễ, 2 câu trung bình, 1 câu khó). 
-            
-#             Đối với mỗi câu hỏi, hãy cung cấp:
-#             1. Nội dung câu hỏi
-#             2. Bốn lựa chọn (A, B, C, D)
-#             3. Đáp án đúng (dưới dạng số thứ tự 0-3)
-#             4. Độ khó (easy, medium, hard)
-#             5. Lời giải chi tiết
-            
-#             Trả về kết quả dưới dạng mảng JSON với mỗi câu hỏi là một đối tượng có các trường: question, options (mảng 4 lựa chọn), correct_answer (số từ 0-3), difficulty, solution.
-            
-#             Đảm bảo rằng đáp án đúng là số nguyên từ 0-3 tương ứng với vị trí trong mảng options.
-            
-#             Ví dụ:
-#             [
-#               {
-#                 "question": "Câu hỏi mẫu?",
-#                 "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
-#                 "correct_answer": 2,
-#                 "difficulty": "medium",
-#                 "solution": "Lời giải chi tiết"
-#               }
-#             ]
-#             """
-#         ]
-
-#         response = model_gen.generate_content(input_parts)
-#         return response.text.strip() if response else "[]"
-#     except Exception as e:
-#         print(f"⚠️ Lỗi khi gọi GenMini API: {e}")
-#         return "[]"
-
-# @app.post("/generate_questions")
-# async def generate_questions(request: TopicRequest):
-#     try:
-#         topic = request.topic
-#         questions_json = generate_admin_questions(topic)
-        
-#         # Xử lý trường hợp câu trả lời có dạng ```json ... ``` hoặc json code block
-#         if "```json" in questions_json:
-#             questions_json = questions_json.split("```json")[1].split("```")[0].strip()
-#         elif "```" in questions_json:
-#             questions_json = questions_json.split("```")[1].split("```")[0].strip()
-            
-#         import json
-#         try:
-#             questions = json.loads(questions_json)
-#             return {"topic": topic, "questions": questions}
-#         except json.JSONDecodeError as e:
-#             print(f"Lỗi decode JSON: {e}")
-#             print(f"JSON gốc: {questions_json}")
-#             return {"topic": topic, "questions": [], "error": "Lỗi định dạng câu hỏi"}
-#     except Exception as e:
-#         return {"error": str(e), "questions": []}
 
 @app.post("/search-test")
 async def search_test(request: QuestionRequest):

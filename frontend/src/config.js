@@ -24,6 +24,7 @@ export const config = {
       uploadImage: `${RAG_API_URL}/upload_image`,
       deleteImage: `${RAG_API_URL}/delete_image`,
       exportExcel: `${RAG_API_URL}/export_excel`,
+      generateSlide: `${RAG_API_URL}/Generate_Slide`,
     }
   }
 };

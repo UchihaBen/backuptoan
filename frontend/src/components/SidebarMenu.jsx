@@ -236,6 +236,14 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
                 ✏️ Chấm điểm tự động
               </button>
             </li>
+            <li className="mb-2 hover:bg-gray-100 rounded p-2">
+              <button 
+                className="w-full text-left text-blue-700"
+                onClick={() => navigate("/admin/generate-slides")}
+              >
+                🖼️ Tạo Slide PowerPoint
+              </button>
+            </li>
           </ul>
           <div className="border-t my-2"></div>
         </>
