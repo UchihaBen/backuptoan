@@ -96,7 +96,7 @@ def search_similar_chunks(question, top_k=3):
         
         # Đếm số lượng văn bản trong collection
         collection = get_fresh_collection()  # 🔁 luôn lấy bản cập nhật mới nhất từ disk
-        collection_info = collection.get(include=["metadatas"])
+        collection_info = collection.get(include=["metadatas", "documents"])
         total_chunks = len(collection_info["ids"]) if "ids" in collection_info else 0
         print(f"💾 Database contains {total_chunks} total chunks")
         
@@ -104,39 +104,217 @@ def search_similar_chunks(question, top_k=3):
         if "ids" in collection_info and collection_info["ids"]:
             print(f"💾 First 5 IDs in database: {collection_info['ids'][:5]}")
             if "metadatas" in collection_info and collection_info["metadatas"]:
-                for i in range(min(5, len(collection_info["metadatas"]))):
+                for i in range(min(len(collection_info["metadatas"]), 5)):
                     print(f"Metadata {i}: {collection_info['metadatas'][i]}")
         
         if total_chunks == 0:
             print("⚠️ No documents in the database. Please add some documents first.")
             return []
 
-        # Tăng top_k để tìm nhiều kết quả hơn
-        search_top_k = min(total_chunks, 10)  # Tìm tối đa 10 kết quả hoặc tất cả chunks nếu ít hơn 10
-        print(f"🔍 Searching with top_k={search_top_k}")
+        # ===== SEMANTIC SEARCH =====
+        # Search với tất cả các chunk có trong database
+        search_top_k = total_chunks  
+        print(f"🔍 Performing semantic search with top_k={search_top_k}")
+        
+        # Lấy lại collection mới nhất trước khi thực hiện query để đảm bảo dữ liệu mới nhất  
+        try:
+            results = collection.query(
+                query_embeddings=query_embedding, 
+                n_results=search_top_k
+            )
             
-        results = collection.query(query_embeddings=query_embedding, n_results=search_top_k)
+            found_count = len(results['documents'][0]) if results['documents'] else 0
+            print(f"🔍 Semantic search results: found {found_count} documents")
+        except Exception as query_error:
+            print(f"⚠️ Error during semantic search: {str(query_error)}")
+            results = {"documents": [], "metadatas": [], "distances": []}
         
-        print(f"🔍 Query results: found {len(results['documents'][0]) if results['documents'] else 0} documents")
+        # ===== KEYWORD SEARCH =====
+        # Thêm tìm kiếm đơn giản dựa trên từ khóa
+        print(f"🔍 Performing keyword search for terms in: '{question}'")
+        keywords = [kw.lower() for kw in question.lower().split() if len(kw) > 2]  # Ignore very short words
+        print(f"🔍 Keywords: {keywords}")
+        keyword_results = []
         
-        if not results["documents"] or len(results["documents"][0]) == 0:
-            print("⚠️ No relevant documents found in the database")
-            return []
-
-        chunks_found = []
-        for doc, metadata, score in zip(results["documents"][0], results["metadatas"][0], results["distances"][0]):
-            chunk_info = {
+        # Duyệt qua tất cả các documents từ collection_info (đã lấy ở trên)
+        if "documents" in collection_info and collection_info["documents"]:
+            for i, (doc_id, doc, metadata) in enumerate(zip(
+                collection_info["ids"], 
+                collection_info["documents"], 
+                collection_info["metadatas"]
+            )):
+                if metadata is None:
+                    print(f"⚠️ Skipping document with None metadata (ID: {doc_id})")
+                    continue
+                    
+                # Tính điểm match đơn giản: số từ khóa được tìm thấy trong document
+                doc_lower = doc.lower()
+                keyword_matches = sum(1 for kw in keywords if kw in doc_lower)
+                
+                # Kiểm tra title nếu có
+                title_matches = 0
+                if "title" in metadata and metadata["title"]:
+                    title_lower = metadata["title"].lower() 
+                    title_matches = sum(1 for kw in keywords if kw in title_lower)
+                
+                total_matches = keyword_matches + (title_matches * 2)  # Title matches count more
+                
+                if total_matches > 0:
+                    # Nếu có ít nhất một từ khóa match, thêm vào kết quả
+                    keyword_score = 1.0 - (total_matches / (len(keywords) * 3))  # Điểm thấp = match tốt
+                    keyword_results.append({
+                        'id': doc_id,
+                        'document': doc,
+                        'metadata': metadata,
+                        'score': keyword_score,
+                        'keyword_matches': total_matches
+                    })
+                    print(f"📄 Keyword match: {metadata.get('title', 'Unnamed Chunk')} (matches: {total_matches})")
+        
+        # Sắp xếp keyword results theo số lượng keywords match (giảm dần)
+        keyword_results.sort(key=lambda x: x['score'])
+        print(f"🔍 Keyword search results: found {len(keyword_results)} documents")
+        
+        # ===== COMBINE RESULTS =====
+        # Tạo một dictionary để track chunks đã được chọn bởi ID
+        combined_chunks = {}
+        
+        # Thêm semantic search results
+        if results["documents"] and len(results["documents"]) > 0 and len(results["documents"][0]) > 0:
+            try:
+                # Đảm bảo metadatas và documents có cùng độ dài
+                doc_count = len(results["documents"][0])
+                meta_count = len(results["metadatas"][0]) if results["metadatas"] else 0
+                dist_count = len(results["distances"][0]) if results["distances"] else 0
+                
+                print(f"🔍 Debug: documents: {doc_count}, metadatas: {meta_count}, distances: {dist_count}")
+                
+                # Chỉ xử lý các phần tử có đủ thông tin
+                for i in range(doc_count):
+                    if i >= meta_count or i >= dist_count:
+                        print(f"⚠️ Index {i} exceeds available metadata or distances")
+                        continue
+                    
+                    doc = results["documents"][0][i]
+                    metadata = results["metadatas"][0][i] if results["metadatas"] else None
+                    score = results["distances"][0][i] if results["distances"] else 1.0
+                    
+                    if metadata is None:
+                        print(f"⚠️ Skipping result with None metadata (index {i})")
+                        # Tạo metadata tạm thời dựa trên nội dung doc
+                        title = doc[:50].replace("\n", " ")
+                        if len(title) >= 50:
+                            title += "..."
+                        
+                        # Tạo metadata mới với ID dựa trên hash của nội dung
+                        import hashlib
+                        doc_hash = hashlib.md5(doc.encode()).hexdigest()[:10]
+                        temp_doc_id = f"temp_{doc_hash}"
+                        
+                        metadata = {
+                            'page': 0, 
+                            'document_id': temp_doc_id,
+                            'title': title,
+                            'chunk_id': f"{temp_doc_id}_chunk_0"
+                        }
+                        print(f"🔄 Created temporary metadata for document: {title}")
+                    
+                    chunk_id = metadata.get('chunk_id', '')
+                    if not chunk_id:
+                        print(f"⚠️ Missing chunk_id in metadata")
+                        continue
+                        
+                    if chunk_id not in combined_chunks:
+                        combined_chunks[chunk_id] = {
                 'page': metadata.get('page', metadata.get('chunk_index', 0)), 
                 'content': doc, 
                 'score': score,
                 'document_id': metadata.get('document_id', 'unknown'),
-                'title': metadata.get('title', 'Unnamed Chunk')
-            }
-            chunks_found.append(chunk_info)
-            print(f"📄 Found chunk: {chunk_info['title']} (score: {score:.4f})")
+                            'title': metadata.get('title', 'Unnamed Chunk'),
+                            'source': 'semantic'
+                        }
+                        print(f"📄 Added from semantic: {metadata.get('title', 'Unnamed Chunk')} (score: {score:.4f})")
+                    
+            except Exception as combine_error:
+                print(f"⚠️ Error combining semantic results: {str(combine_error)}")
+                import traceback
+                traceback.print_exc()
         
-        # Trả về top_k kết quả gốc như yêu cầu
-        return chunks_found[:top_k]
+        # Thêm keyword search results
+        for result in keyword_results:
+            try:
+                metadata = result['metadata']
+                if metadata is None:
+                    print(f"⚠️ Skipping keyword result with None metadata")
+                    continue
+                    
+                chunk_id = metadata.get('chunk_id', '')
+                if not chunk_id:
+                    print(f"⚠️ Missing chunk_id in keyword result metadata")
+                    continue
+                    
+                if chunk_id not in combined_chunks:
+                    combined_chunks[chunk_id] = {
+                        'page': metadata.get('page', metadata.get('chunk_index', 0)), 
+                        'content': result['document'], 
+                        'score': result['score'],  # Sử dụng score từ keyword search
+                        'document_id': metadata.get('document_id', 'unknown'),
+                        'title': metadata.get('title', 'Unnamed Chunk'),
+                        'source': 'keyword',
+                        'keyword_matches': result['keyword_matches']
+                    }
+                    print(f"📄 Added from keyword: {metadata.get('title', 'Unnamed Chunk')} (score: {result['score']:.4f}, matches: {result['keyword_matches']})")
+            except Exception as kw_error:
+                print(f"⚠️ Error adding keyword result: {str(kw_error)}")
+        
+        # Chuyển đổi từ dictionary thành list
+        chunks_found = list(combined_chunks.values())
+        
+        # Sắp xếp kết quả: semantic trước, sau đó đến keyword, rồi theo score
+        chunks_found.sort(key=lambda x: (
+            0 if x.get('source') == 'semantic' else 1,  # semantic trước
+            x.get('score', 1.0)  # score thấp hơn trước (tốt hơn)
+        ))
+        
+        print(f"✅ Combined results: {len(chunks_found)} unique chunks")
+        
+        # Print details of combined results
+        for i, chunk in enumerate(chunks_found):
+            print(f"📄 Result {i+1}: {chunk['title']} (score: {chunk['score']:.4f}, source: {chunk['source']})")
+        
+        # Nếu không tìm thấy kết quả nào
+        if not chunks_found:
+            print("⚠️ No chunks found after combining results")
+            # Tìm kiếm đơn giản hơn - chỉ dựa trên từ khóa chính
+            main_keywords = [kw for kw in keywords if len(kw) > 3]
+            if main_keywords:
+                main_keyword = main_keywords[0]
+                print(f"🔎 Performing fallback search with main keyword: '{main_keyword}'")
+                
+                for doc_id, doc, metadata in zip(
+                    collection_info["ids"], 
+                    collection_info["documents"],
+                    collection_info["metadatas"]
+                ):
+                    if metadata is None:
+                        continue
+                        
+                    if main_keyword in doc.lower():
+                        print(f"🔎 Found document containing '{main_keyword}'")
+                        chunks_found.append({
+                            'page': metadata.get('page', metadata.get('chunk_index', 0)), 
+                            'content': doc, 
+                            'score': 0.5,  # Score trung bình
+                            'document_id': metadata.get('document_id', 'unknown'),
+                            'title': metadata.get('title', 'Unnamed Chunk'),
+                            'source': 'fallback'
+                        })
+                        break
+                        
+        # Trả về top_k kết quả hoặc tất cả những gì tìm được nếu ít hơn top_k
+        final_results = chunks_found[:top_k] if len(chunks_found) > 0 else []
+        print(f"✅ Returning {len(final_results)} chunks")
+        return final_results
     except Exception as e:
         print(f"⚠️ Lỗi khi tìm kiếm tài liệu: {str(e)}")
         import traceback

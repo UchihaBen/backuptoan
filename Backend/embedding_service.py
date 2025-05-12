@@ -134,8 +134,13 @@ def embed_document_chunks(document_id):
                     ids=ids
                 )
                 
+                # Reset chromaDB client để đảm bảo dữ liệu được cập nhật từ disk
+                logger.info("Tạo lại kết nối tới ChromaDB để đảm bảo dữ liệu mới nhất")
+                new_client = chromadb.PersistentClient(path=DB_PATH)
+                fresh_collection = new_client.get_collection(name="my_collection")
+                
                 # Xác minh ngay lập tức dữ liệu đã được lưu
-                verification = collection.get(
+                verification = fresh_collection.get(
                     where={"document_id": str_doc_id},
                     include=["metadatas"]
                 )

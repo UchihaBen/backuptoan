@@ -19,14 +19,31 @@ chroma_client = chromadb.PersistentClient(path=DB_PATH)
 collection = chroma_client.get_or_create_collection(name="my_collection")
 
 
+def get_fresh_collection():
+    from chromadb import PersistentClient
+    chroma_client = PersistentClient(path=DB_PATH)
+    return chroma_client.get_collection(name="my_collection")
+
 def search_similar_chunks(question, top_k=3):
     query_embedding = sentence_ef.encode([question]).tolist()
+    # Lấy collection mới nhất từ disk để đảm bảo dữ liệu mới nhất
+    collection = get_fresh_collection()
     results = collection.query(query_embeddings=query_embedding, n_results=top_k)
 
-    return [
-        {'page': metadata['page'], 'content': doc, 'score': score}
-        for doc, metadata, score in zip(results["documents"][0], results["metadatas"][0], results["distances"][0])
-    ] if results["documents"] else []
+    chunks_found = []
+    if results["documents"]:
+        for doc, metadata, score in zip(results["documents"][0], results["metadatas"][0], results["distances"][0]):
+            # Kiểm tra metadata có phải None không
+            if metadata is None:
+                metadata = {'page': 0}
+            
+            chunks_found.append({
+                'page': metadata.get('page', metadata.get('chunk_index', 0)),
+                'content': doc,
+                'score': score
+            })
+    
+    return chunks_found
 
 def generate_answer_with_genmini(question, context, image_paths=None):
     try:
