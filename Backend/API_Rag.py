@@ -21,6 +21,9 @@ import shutil
 import json
 import openpyxl.styles
 from fastapi.staticfiles import StaticFiles
+from chromadb import PersistentClient
+from chromadb.config import Settings
+
 # 🔐 Đặt API key của Gemini từ biến môi trường thay vì hardcode (bảo mật hơn)
 GENMINI_API_KEY = "AIzaSyAqX5bkYluS_QKYSILRVCJHvY6KpSy2-ds"
 genai.configure(api_key=GENMINI_API_KEY)
@@ -79,12 +82,20 @@ class TopicRequest(BaseModel):
 class ExcelExportRequest(BaseModel):
     results: list
 
+def get_fresh_collection():
+    from chromadb import PersistentClient
+    from chromadb.config import Settings
+
+    chroma_client = PersistentClient(path=DB_PATH)
+    return chroma_client.get_collection(name="my_collection")
+
 def search_similar_chunks(question, top_k=3):
     try:
         print(f"🔍 Searching for: '{question}', top_k={top_k}")
         query_embedding = sentence_ef.encode([question]).tolist()
         
         # Đếm số lượng văn bản trong collection
+        collection = get_fresh_collection()  # 🔁 luôn lấy bản cập nhật mới nhất từ disk
         collection_info = collection.get(include=["metadatas"])
         total_chunks = len(collection_info["ids"]) if "ids" in collection_info else 0
         print(f"💾 Database contains {total_chunks} total chunks")
@@ -826,6 +837,7 @@ Bạn là một trợ lý AI chuyên tạo nội dung slide bài giảng toán h
 - Ưu tiên sử dụng thuật ngữ từ sách giáo khoa
 - Đảm bảo cấu trúc JSON chính xác
 - Nội dung phải khoa học, chính xác về mặt toán học
+- các công thức nếu có phù hợp để hiện thị trong powpoin. tránh sinh code dạng ( ký hiệu LaTeX như \(, \))
             """
         ]
 
