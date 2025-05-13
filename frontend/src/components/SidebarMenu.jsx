@@ -10,13 +10,13 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
   const [error, setError] = useState("");
   const [showConfirmDelete, setShowConfirmDelete] = useState(null);
 
-  // Lấy token từ localStorage
+  // Get token from localStorage
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  // Kiểm tra có phải là admin không
+  // Check if user is admin
   const isAdmin = user && user.role === "admin";
 
-  // Lấy lịch sử chat khi component mount
+  // Get chat history when component mounts
   useEffect(() => {
     if (token && isVisible) {
       fetchChatHistory();
@@ -29,7 +29,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
     try {
       console.log("Fetching chat history with token:", token ? "Valid token" : "No token");
       
-      // Giới hạn token log để tránh rò rỉ thông tin
+      // Limit token log to avoid information leakage
       const authHeader = `Bearer ${token}`;
       console.log("Auth header length:", authHeader.length);
       
@@ -50,12 +50,12 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
         setChatHistory([]);
       }
     } catch (err) {
-      console.error("Lỗi khi lấy lịch sử chat:", err);
+      console.error("Error when fetching chat history:", err);
       if (err.response) {
         console.error("Error response status:", err.response.status);
         console.error("Error response data:", err.response.data);
       }
-      setError("Không thể lấy lịch sử chat");
+      setError("Unable to fetch chat history");
     } finally {
       setLoading(false);
     }
@@ -64,38 +64,38 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
   const handleButtonClick = async (page) => {
     if (chatbotRef.current) {
       try {
-        // Lấy 3 tin nhắn gần nhất đã được định dạng
-      const lastMessages = chatbotRef.current.getLastMessages();
-        console.log("Tin nhắn gần nhất:", lastMessages);
+        // Get the 3 most recent formatted messages
+        const lastMessages = chatbotRef.current.getLastMessages();
+        console.log("Recent messages:", lastMessages);
         
-        // Nếu không có tin nhắn, sử dụng một giá trị mặc định
-        const messageToSend = lastMessages || "Hãy tạo bài trắc nghiệm về toán học";
+        // If no messages, use a default value
+        const messageToSend = lastMessages || "Create a math quiz";
         
-        // Gọi API để xác định chủ đề từ lịch sử trò chuyện
-        console.log("Gửi đến API chat_topic:", messageToSend);
+        // Call API to determine topic from conversation history
+        console.log("Sending to chat_topic API:", messageToSend);
         const res = await axios.post(config.apiEndpoints.ragApi.chatTopic, { "question": messageToSend });
         const topic = res.data.answer;
-        console.log("Chủ đề nhận được:", topic);
+        console.log("Topic received:", topic);
         
-        // Điều hướng đến trang phù hợp và truyền chủ đề qua state
+        // Navigate to appropriate page and pass topic via state
         navigate(page, { state: { topic } });
       } catch (error) {
-        console.error("Lỗi khi xác định chủ đề:", error);
-        alert("Không thể xác định chủ đề từ cuộc trò chuyện. Vui lòng thử lại.");
+        console.error("Error determining topic:", error);
+        alert("Unable to determine topic from conversation. Please try again.");
       }
     } else {
-      // Trường hợp không có chatbot reference
-      navigate(page, { state: { topic: "Toán học cơ bản" } });
+      // Case where there's no chatbot reference
+      navigate(page, { state: { topic: "Basic Mathematics" } });
     }
   };
 
   const handleConversationClick = (conversationId) => {
-    // Thông báo cho component cha biết conversation được chọn
+    // Notify parent component of selected conversation
     if (onConversationSelect) {
       onConversationSelect(conversationId);
     }
     
-    // Chuyển đến trang home với conversationId cụ thể
+    // Navigate to home page with specific conversationId
     navigate("/home", { state: { conversationId } });
     closeMenu();
   };
@@ -104,7 +104,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
     try {
       const response = await axios.post(
         `${config.apiEndpoints.chat}/conversations`,
-        { title: `Cuộc hội thoại (${new Date().toLocaleString()})` },
+        { title: `Conversation (${new Date().toLocaleString()})` },
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -112,27 +112,27 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
         }
       );
       
-      // Refresh lịch sử chat
+      // Refresh chat history
       await fetchChatHistory();
       
-      // Chuyển đến trang home với conversationId mới
+      // Navigate to home page with new conversationId
       const newConversationId = response.data.conversation_id;
       navigate("/home", { state: { conversationId: newConversationId } });
       
-      // Thông báo cho component cha biết conversation được chọn
+      // Notify parent component of selected conversation
       if (onConversationSelect) {
         onConversationSelect(newConversationId);
       }
       
       closeMenu();
     } catch (error) {
-      console.error("Lỗi khi tạo hội thoại mới:", error);
-      alert("Không thể tạo hội thoại mới. Vui lòng thử lại.");
+      console.error("Error creating new conversation:", error);
+      alert("Unable to create new conversation. Please try again.");
     }
   };
 
   const handleDeleteConversation = async (conversationId, e) => {
-    // Ngăn event lan ra phần tử cha (không mở conversation khi click nút delete)
+    // Prevent event from propagating to parent elements (don't open conversation when clicking delete button)
     e.stopPropagation();
     
     setShowConfirmDelete(conversationId);
@@ -149,18 +149,18 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
         }
       );
       
-      // Refresh lịch sử chat
+      // Refresh chat history
       await fetchChatHistory();
       setShowConfirmDelete(null);
       
     } catch (error) {
-      console.error("Lỗi khi xóa hội thoại:", error);
-      alert("Không thể xóa hội thoại. Vui lòng thử lại.");
+      console.error("Error deleting conversation:", error);
+      alert("Unable to delete conversation. Please try again.");
     }
   };
 
   const handleLogout = () => {
-    // Xóa token và thông tin người dùng
+    // Remove token and user info
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
@@ -168,7 +168,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('vi-VN', {
+    return new Intl.DateTimeFormat('en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -191,7 +191,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
       
       {user && user.username && (
         <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-          <p className="font-medium">Xin chào, {user.username}</p>
+          <p className="font-medium">Hello, {user.username}</p>
           <p className="text-sm text-gray-600">{user.email}</p>
           {isAdmin && (
             <p className="text-sm mt-1 text-blue-600 font-medium">Admin</p>
@@ -199,17 +199,17 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
         </div>
       )}
 
-      {/* Admin Menu - chỉ hiển thị nếu là admin */}
+      {/* Admin Menu - only shown if user is admin */}
       {isAdmin && (
         <>
-          <h3 className="font-medium mb-2 mt-4 text-blue-700">Quản trị</h3>
+          <h3 className="font-medium mb-2 mt-4 text-blue-700">Administration</h3>
           <ul className="mb-4">
             <li className="mb-2 hover:bg-gray-100 rounded p-2">
               <button 
                 className="w-full text-left text-blue-700"
                 onClick={() => navigate("/admin")}
               >
-                👑 Bảng điều khiển Admin
+                👑 Admin Dashboard
               </button>
             </li>
             <li className="mb-2 hover:bg-gray-100 rounded p-2">
@@ -217,7 +217,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
                 className="w-full text-left text-blue-700"
                 onClick={() => navigate("/admin?tab=questions")}
               >
-                📝 Tạo câu hỏi
+                📝 Create Questions
               </button>
             </li>
             <li className="mb-2 hover:bg-gray-100 rounded p-2">
@@ -225,7 +225,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
                 className="w-full text-left text-blue-700"
                 onClick={() => navigate("/admin/system-settings")}
               >
-                ⚙️ Tải tài liệu lên
+                ⚙️ Upload Documents
               </button>
             </li>
             <li className="mb-2 hover:bg-gray-100 rounded p-2">
@@ -233,7 +233,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
                 className="w-full text-left text-blue-700"
                 onClick={() => navigate("/admin/GradeMathPaperPage")}
               >
-                ✏️ Chấm điểm tự động
+                ✏️ Auto Grading
               </button>
             </li>
             <li className="mb-2 hover:bg-gray-100 rounded p-2">
@@ -241,7 +241,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
                 className="w-full text-left text-blue-700"
                 onClick={() => navigate("/admin/generate-slides")}
               >
-                🖼️ Tạo Slide PowerPoint
+                🖼️ Create PowerPoint Slides
               </button>
             </li>
           </ul>
@@ -249,14 +249,14 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
         </>
       )}
 
-      <h3 className="font-medium mb-2 mt-4">Bài tập</h3>
+      <h3 className="font-medium mb-2 mt-4">Exercises</h3>
       <ul className="mb-4">
         <li className="mb-2 hover:bg-gray-100 rounded p-2">
           <button 
             className="w-full text-left"
             onClick={() => handleButtonClick("/quiz")}
           >
-            🔢 Làm bài trắc nghiệm
+            🔢 Multiple Choice Quiz
           </button>
         </li>
         <li className="mb-2 hover:bg-gray-100 rounded p-2">
@@ -264,7 +264,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
             className="w-full text-left"
             onClick={() => handleButtonClick("/essay")}
           >
-            📝 Làm bài tự luận
+            📝 Essay Questions
           </button>
         </li>
         <li className="mb-2 hover:bg-gray-100 rounded p-2">
@@ -272,40 +272,40 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
             className="w-full text-left"
             onClick={() => handleButtonClick("/practical")}
           >
-            🧮 Bài tập thực hành
+            🧮 Practical Exercises
           </button>
         </li>
       </ul>
 
-      <h3 className="font-medium mb-2 mt-4">Ôn luyện theo chủ đề</h3>
+      <h3 className="font-medium mb-2 mt-4">Study by Topic</h3>
       <ul className="mb-4">
         <li className="mb-2 hover:bg-gray-100 rounded p-2">
           <button 
             className="w-full text-left"
             onClick={() => navigate("/topics")}
           >
-            📚 Danh sách chủ đề
+            📚 Topic List
           </button>
         </li>
       </ul>
 
       <div className="border-t pt-4 mt-4">
         <div className="flex justify-between items-center mb-2">
-          <h3 className="font-medium">Lịch sử trò chuyện</h3>
+          <h3 className="font-medium">Chat History</h3>
           <button 
             className="text-blue-500 hover:bg-blue-50 rounded px-2 py-1 text-sm flex items-center"
             onClick={handleNewConversation}
           >
-            <span className="mr-1">+</span> Tạo mới
+            <span className="mr-1">+</span> New Chat
           </button>
         </div>
         
-        {loading && <p className="text-gray-500 text-sm">Đang tải...</p>}
+        {loading && <p className="text-gray-500 text-sm">Loading...</p>}
         
         {error && <p className="text-red-500 text-sm">{error}</p>}
         
         {!loading && !error && chatHistory.length === 0 && (
-          <p className="text-gray-500 text-sm">Chưa có cuộc trò chuyện nào</p>
+          <p className="text-gray-500 text-sm">No conversations yet</p>
         )}
         
         <ul className="space-y-2 max-h-48 overflow-y-auto">
@@ -317,7 +317,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
             >
               {showConfirmDelete === conversation._id ? (
                 <div className="absolute inset-0 bg-white p-2 rounded flex flex-col justify-center items-center z-20">
-                  <p className="text-sm font-medium mb-2">Xác nhận xóa hội thoại?</p>
+                  <p className="text-sm font-medium mb-2">Confirm delete conversation?</p>
                   <div className="flex space-x-2">
                     <button 
                       className="px-3 py-1 bg-red-500 text-white text-sm rounded"
@@ -326,7 +326,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
                         confirmDelete(conversation._id);
                       }}
                     >
-                      Xóa
+                      Delete
                     </button>
                     <button 
                       className="px-3 py-1 bg-gray-200 text-gray-800 text-sm rounded"
@@ -335,7 +335,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
                         setShowConfirmDelete(null);
                       }}
                     >
-                      Hủy
+                      Cancel
                     </button>
                   </div>
                 </div>
@@ -366,7 +366,7 @@ function SidebarMenu({ closeMenu, chatbotRef, onConversationSelect, isVisible = 
           className="w-full text-left text-red-500 p-2 hover:bg-gray-100 rounded"
           onClick={handleLogout}
         >
-          🚪 Đăng xuất
+          🚪 Logout
         </button>
       </div>
     </div>

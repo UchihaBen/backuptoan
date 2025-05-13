@@ -7,22 +7,22 @@ function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Kiểm tra quyền admin khi component mount
+  // Check admin permissions when component mounts
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const token = localStorage.getItem("token");
     
     if (!token) {
-      // Nếu chưa đăng nhập, chuyển về trang login
+      // If not logged in, redirect to login page
       navigate("/login");
       return;
     }
     
-    // Kiểm tra người dùng có quyền admin hay không
+    // Check if user has admin role
     if (user && user.role === "admin") {
       setIsAdmin(true);
     } else {
-      // Nếu không phải admin, chuyển về trang home
+      // If not admin, redirect to home page
       navigate("/home");
     }
     
@@ -30,7 +30,7 @@ function AdminPage() {
   }, [navigate]);
   
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Đang tải...</div>;
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
   
   return (

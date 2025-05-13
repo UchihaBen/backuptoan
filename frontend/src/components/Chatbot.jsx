@@ -65,7 +65,7 @@ const Chatbot = forwardRef((props, ref) => {
     } catch (error) {
       console.error("Error fetching chat history:", error);
       if (error.response?.status === 401) {
-        alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        alert("Your session has expired. Please login again.");
         window.location.href = "/login";
       }
     } finally {
@@ -89,7 +89,7 @@ const Chatbot = forwardRef((props, ref) => {
       // Định dạng tin nhắn theo yêu cầu: "lần hỏi X: nội dung"
       const formattedMessages = lastThreeUserMessages.map((msg, index) => {
         const messageIndex = userMessages.length - (lastThreeUserMessages.length - index);
-        return `lần hỏi ${messageIndex}: ${msg.text}`;
+        return `question ${messageIndex}: ${msg.text}`;
       });
       
       // Ghép các tin nhắn thành một chuỗi
@@ -134,10 +134,10 @@ const Chatbot = forwardRef((props, ref) => {
       
       if (error.response?.status === 401) {
         // Token hết hạn hoặc không hợp lệ
-        alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        alert("Your session has expired. Please login again.");
         window.location.href = "/login";
       } else {
-      setMessages([...newMessages, { text: "Lỗi khi gọi API.", sender: "bot" }]);
+      setMessages([...newMessages, { text: "Error calling API.", sender: "bot" }]);
     }
     } finally {
       setIsLoading(false);
@@ -156,7 +156,7 @@ const Chatbot = forwardRef((props, ref) => {
       <div className="p-4 w-full max-w-md mx-auto flex flex-col h-screen bg-gray-100">
         <div className="flex-1 flex items-center justify-center">
           <p className="text-center text-gray-500">
-            Vui lòng <a href="/login" className="text-blue-500">đăng nhập</a> để sử dụng chatbot
+            Please <a href="/login" className="text-blue-500">login</a> to use the chatbot
           </p>
         </div>
       </div>
@@ -168,7 +168,7 @@ const Chatbot = forwardRef((props, ref) => {
       <div className="flex-1 overflow-auto border p-2 bg-white rounded-lg shadow-sm">
         {messages.length === 0 && !isLoading && (
           <div className="h-full flex items-center justify-center">
-            <p className="text-gray-500">Hãy đặt câu hỏi để bắt đầu cuộc trò chuyện</p>
+            <p className="text-gray-500">Ask a question to start the conversation</p>
           </div>
         )}
         
@@ -185,7 +185,7 @@ const Chatbot = forwardRef((props, ref) => {
         {isLoading && (
           <div className="flex justify-start mb-2">
             <div className="bg-gray-200 p-2 rounded-lg">
-              <span>Đang xử lý...</span>
+              <span>Processing...</span>
             </div>
           </div>
         )}
@@ -198,15 +198,14 @@ const Chatbot = forwardRef((props, ref) => {
           value={question} 
           onChange={(e) => setQuestion(e.target.value)} 
           onKeyPress={handleKeyPress}
-          placeholder="Nhập câu hỏi..." 
-          disabled={isLoading}
+          placeholder="Type your question here..."
         />
         <button 
-          className={`px-4 py-2 rounded-lg ${isLoading ? 'bg-gray-400' : 'bg-blue-500 text-white'}`} 
+          className={`px-4 py-2 rounded-lg ${isLoading ? 'bg-blue-300' : 'bg-blue-500 hover:bg-blue-600'} text-white`}
           onClick={handleAsk}
           disabled={isLoading}
         >
-          Gửi
+          {isLoading ? "Sending..." : "Send"}
         </button>
       </div>
     </div>

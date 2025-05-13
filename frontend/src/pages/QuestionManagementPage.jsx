@@ -23,18 +23,18 @@ function QuestionManagementPage() {
   const [topicToDelete, setTopicToDelete] = useState(null);
   const [deleteSuccessMessage, setDeleteSuccessMessage] = useState(null);
   
-  // Token lấy từ localStorage
+  // Token from localStorage
   const token = localStorage.getItem("token");
   
-  // Lấy câu hỏi hiện tại
+  // Get current question
   const currentQuestion = allQuestions[currentQuestionIndex] || null;
   
-  // Lấy danh sách chủ đề đã lưu khi component mount
+  // Fetch saved topics when component mounts
   useEffect(() => {
     fetchSavedTopics();
   }, []);
   
-  // Hàm lấy danh sách chủ đề đã lưu
+  // Function to fetch saved topics
   const fetchSavedTopics = async () => {
     setLoadingSavedTopics(true);
     try {
@@ -45,7 +45,7 @@ function QuestionManagementPage() {
       });
       
       if (response.data && response.data.question_sets) {
-        // Chuyển đổi từ danh sách bộ câu hỏi sang danh sách chủ đề
+        // Convert from question sets list to topics list
         const topics = response.data.question_sets.map(set => ({
           _id: set._id,
           name: set.topic,
@@ -55,36 +55,36 @@ function QuestionManagementPage() {
         }));
         setSavedTopics(topics);
       } else {
-        console.error("API không trả về dữ liệu theo định dạng mong đợi:", response.data);
+        console.error("API did not return data in expected format:", response.data);
       }
     } catch (err) {
-      console.error("Lỗi khi lấy danh sách chủ đề:", err);
+      console.error("Error fetching topics list:", err);
     } finally {
       setLoadingSavedTopics(false);
     }
   };
   
-  // Hàm lấy câu hỏi theo chủ đề
+  // Function to fetch questions by topic
   const fetchQuestionsByTopic = async (topicId, topicName) => {
     setLoading(true);
     setError(null);
     
     try {
-      // Gọi API lấy chi tiết bộ câu hỏi
+      // Call API to get question set details
       const response = await axios.get(`${config.apiEndpoints.admin}/questions/${topicId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       
-      console.log("Dữ liệu câu hỏi theo chủ đề:", response.data);
+      console.log("Question data by topic:", response.data);
       
-      // Kiểm tra cấu trúc dữ liệu trả về
+      // Check returned data structure
       if (response.data && response.data.question_set) {
-        // Lưu ID của chủ đề đang chỉnh sửa
+        // Save ID of topic being edited
         setCurrentTopicId(topicId);
         
-        // Chuyển đổi định dạng câu hỏi nếu cần
+        // Convert question format if needed
         const questions = response.data.question_set.questions || [];
         
         if (Array.isArray(questions) && questions.length > 0) {
@@ -114,30 +114,30 @@ function QuestionManagementPage() {
           setAllQuestions([]);
           setTopic(topicName);
           setTopicLocked(true);
-          setError("Chủ đề này không có câu hỏi nào.");
+          setError("This topic has no questions.");
           setIsCreatingNew(true);
         }
       } else {
-        console.error("Cấu trúc dữ liệu không đúng:", response.data);
-        setError("Không thể lấy câu hỏi cho chủ đề này. Cấu trúc dữ liệu không đúng định dạng.");
+        console.error("Incorrect data structure:", response.data);
+        setError("Could not get questions for this topic. Data structure is incorrect.");
       }
     } catch (err) {
-      console.error("Lỗi khi lấy câu hỏi theo chủ đề:", err);
+      console.error("Error fetching questions by topic:", err);
       if (err.response && err.response.data && err.response.data.error) {
-        setError(`Không thể lấy câu hỏi: ${err.response.data.error}`);
+        setError(`Could not get questions: ${err.response.data.error}`);
       } else {
-        setError("Không thể lấy câu hỏi. Lỗi kết nối API.");
+        setError("Could not get questions. API connection error.");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // Chuyển đổi từ format options {A, B, C, D} sang format options [A, B, C, D]
+  // Convert from options format {A, B, C, D} to options format [A, B, C, D]
   const convertApiResponseToQuestions = (questions) => {
     return questions.map(q => {
       try {
-        // Nếu options là object thì chuyển thành array
+        // If options is an object, convert to array
         if (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) {
           const optionsArray = [
             q.options.A || "",
@@ -146,33 +146,33 @@ function QuestionManagementPage() {
             q.options.D || ""
           ];
           
-          // Xác định chỉ số của đáp án đúng
+          // Determine index of correct answer
           let correctAnswer = 0;
           if (q.answer === 'A') correctAnswer = 0;
           else if (q.answer === 'B') correctAnswer = 1;
           else if (q.answer === 'C') correctAnswer = 2;
           else if (q.answer === 'D') correctAnswer = 3;
           
-          // Nếu không có trường solution, cố gắng dùng trường explanation nếu có
+          // If no solution field, try to use explanation field if available
           const solution = q.solution || q.explanation || "";
           
           return {
             question: q.question,
             options: optionsArray,
             correct_answer: correctAnswer,
-            // Đảm bảo difficulty đúng định dạng
-            difficulty: q.difficulty?.toLowerCase().includes('mức 1') ? 'easy' : 
-                      q.difficulty?.toLowerCase().includes('mức 2') ? 'medium' : 
-                      q.difficulty?.toLowerCase().includes('mức 3') ? 'hard' : 'medium',
+            // Ensure difficulty is in the right format
+            difficulty: q.difficulty?.toLowerCase().includes('level 1') || q.difficulty?.toLowerCase().includes('mức 1') ? 'easy' : 
+                      q.difficulty?.toLowerCase().includes('level 2') || q.difficulty?.toLowerCase().includes('mức 2') ? 'medium' : 
+                      q.difficulty?.toLowerCase().includes('level 3') || q.difficulty?.toLowerCase().includes('mức 3') ? 'hard' : 'medium',
             solution: solution
           };
         }
         return q;
       } catch (e) {
-        console.error("Lỗi khi xử lý câu hỏi:", e, q);
-        // Trả về câu hỏi mặc định nếu có lỗi
+        console.error("Error processing question:", e, q);
+        // Return default question if error
         return {
-          question: q.question || "Câu hỏi không hợp lệ",
+          question: q.question || "Invalid question",
           options: ["", "", "", ""],
           correct_answer: 0,
           difficulty: "medium",
@@ -184,7 +184,7 @@ function QuestionManagementPage() {
   
   const generateQuestions = async () => {
     if (!topic.trim()) {
-      alert("Vui lòng nhập chủ đề");
+      alert("Please enter a topic");
       return;
     }
     
@@ -196,65 +196,65 @@ function QuestionManagementPage() {
         { question: topic }
       );
       
-      // Xử lý câu trả lời từ API
+      // Process API response
       if (response.data && response.data.answer) {
         try {
           console.log("API response:", response.data.answer);
           
-          // Xử lý JSON giống như trong QuizPage.jsx
+          // Process JSON string
           const jsonString = response.data.answer
-            .replace(/```json\n?|```/g, "")  // Xóa ký hiệu code block JSON
-            .replace(/(?<!\\)\\(?!\\)/g, "\\\\")  // Chỉ thay \ đơn thành \\ nhưng giữ nguyên \\ đã có
+            .replace(/```json\n?|```/g, "")  // Remove JSON code block markers
+            .replace(/(?<!\\)\\(?!\\)/g, "\\\\")  // Replace single backslash with double backslash but keep existing \\
             .trim();
           
           console.log("Processed JSON string:", jsonString);
           
-          // Parse chuỗi JSON đã xử lý
+          // Parse processed JSON string
           const jsonData = JSON.parse(jsonString);
           console.log("Parsed data:", jsonData);
           
-          // Kiểm tra xem có cấu trúc questions không
+          // Check if there's questions structure
           if (jsonData && jsonData.questions && Array.isArray(jsonData.questions) && jsonData.questions.length > 0) {
             const formattedQuestions = convertApiResponseToQuestions(jsonData.questions);
             
-            // Thêm vào danh sách câu hỏi hiện có
+            // Add to existing questions list
             setAllQuestions(prev => [...prev, ...formattedQuestions]);
             
-            // Khóa chủ đề sau khi tạo thành công
+            // Lock topic after successful creation
             setTopicLocked(true);
             
-            // Nếu đây là lần đầu tiên, chọn câu hỏi đầu tiên
+            // If this is the first time, select the first question
             if (!currentQuestion) {
               setCurrentQuestionIndex(0);
             }
           } else if (Array.isArray(jsonData)) {
-            // Trường hợp API trả về mảng trực tiếp không có key questions
+            // Case when API returns direct array without questions key
             const formattedQuestions = convertApiResponseToQuestions(jsonData);
             
-            // Thêm vào danh sách câu hỏi hiện có
+            // Add to existing questions list
             setAllQuestions(prev => [...prev, ...formattedQuestions]);
             
-            // Khóa chủ đề sau khi tạo thành công
+            // Lock topic after successful creation
             setTopicLocked(true);
             
-            // Nếu đây là lần đầu tiên, chọn câu hỏi đầu tiên
+            // If this is the first time, select the first question
             if (!currentQuestion) {
               setCurrentQuestionIndex(0);
             }
           } else {
-            throw new Error("Không có câu hỏi trong dữ liệu nhận được");
+            throw new Error("No questions found in received data");
           }
         } catch (jsonError) {
-          console.error("Lỗi xử lý JSON:", jsonError);
-          console.error("Dữ liệu gốc từ API:", response.data.answer);
-          setError("Lỗi định dạng dữ liệu. Vui lòng thử lại với chủ đề khác.");
+          console.error("JSON processing error:", jsonError);
+          console.error("Raw data from API:", response.data.answer);
+          setError("Data formatting error. Please try with a different topic.");
         }
       } else {
-        setError("Không thể tạo câu hỏi. Vui lòng thử lại với chủ đề khác.");
+        setError("Could not create question. Please try with a different topic.");
       }
     } catch (err) {
-      console.error("Lỗi khi tạo câu hỏi:", err);
-      setError("Không thể tạo câu hỏi. Lỗi kết nối API.");
+      console.error("Error creating question:", err);
+      setError("Could not create question. API connection error.");
     } finally {
       setGeneratingQuestions(false);
       setSavedSuccessfully(false);
@@ -268,41 +268,41 @@ function QuestionManagementPage() {
     setCurrentQuestionIndex(0);
     setTopicLocked(false);
     setError(null);
-    setCurrentTopicId(null); // Reset currentTopicId khi tạo mới
+    setCurrentTopicId(null); // Reset currentTopicId when creating new
   };
   
   const handleBackToTopics = () => {
-    // Nếu có câu hỏi, hiển thị hộp thoại lưu
+    // If there's question, show save dialog
     if (allQuestions.length > 0 && !savedSuccessfully) {
       setShowSaveDialog(true);
     } else {
-      // Nếu không có câu hỏi hoặc đã lưu, quay lại danh sách trực tiếp
+      // If no questions or already saved, go back directly
       resetForm();
     }
   };
   
   const handleNewTopic = () => {
-    // Nếu có câu hỏi, hiển thị hộp thoại lưu
+    // If there's question, show save dialog
     if (allQuestions.length > 0) {
       setShowSaveDialog(true);
     } else {
-      // Nếu không có câu hỏi, reset form trực tiếp
+      // If no questions, reset form directly
       resetForm();
     }
   };
   
   const handleSaveDialogResponse = (shouldSave) => {
     if (shouldSave) {
-      // Lưu câu hỏi rồi reset form
+      // Save questions then reset form
       saveQuestions();
     } else {
-      // Không lưu, chỉ reset form
+      // Don't save, just reset form
       setShowSaveDialog(false);
       resetForm();
     }
   };
   
-  // Lọc danh sách chủ đề theo từ khóa tìm kiếm
+  // Filter topics list by search term
   const filteredTopics = searchTerm.trim() === '' 
     ? savedTopics 
     : savedTopics.filter(topic => 
@@ -354,7 +354,7 @@ function QuestionManagementPage() {
   
   const removeCurrentQuestion = () => {
     if (allQuestions.length <= 1) {
-      alert("Phải giữ lại ít nhất một câu hỏi");
+      alert("Must keep at least one question");
       return;
     }
     
@@ -363,7 +363,7 @@ function QuestionManagementPage() {
     
     setAllQuestions(updatedQuestions);
     
-    // Điều chỉnh index hiện tại nếu cần
+    // Adjust current index if needed
     if (currentQuestionIndex >= updatedQuestions.length) {
       setCurrentQuestionIndex(updatedQuestions.length - 1);
     }
@@ -383,9 +383,9 @@ function QuestionManagementPage() {
     }
   };
   
-  // Thêm API endpoint để cập nhật bộ câu hỏi đã tồn tại
+  // Add API endpoint to update existing question set
   const updateExistingQuestionSet = async (topicId, data) => {
-    console.log(`Cập nhật bộ câu hỏi có ID ${topicId}`, data);
+    console.log(`Updating question set with ID ${topicId}`, data);
     try {
       const response = await axios.put(`${config.apiEndpoints.admin}/questions/${topicId}`, 
         data,
@@ -405,11 +405,11 @@ function QuestionManagementPage() {
   
   const saveQuestions = async () => {
     if (allQuestions.length === 0) {
-      alert("Không có câu hỏi để lưu");
+      alert("No questions to save");
       return;
     }
     
-    // Kiểm tra xem dữ liệu có hợp lệ không
+    // Check if data is valid
     const invalidQuestions = allQuestions.filter(q => 
       !q.question.trim() || 
       q.options.some(opt => !opt.trim()) ||
@@ -417,7 +417,7 @@ function QuestionManagementPage() {
     );
     
     if (invalidQuestions.length > 0) {
-      alert(`Có ${invalidQuestions.length} câu hỏi chưa hoàn thiện. Vui lòng điền đầy đủ nội dung câu hỏi, các lựa chọn và lời giải.`);
+      alert(`There are ${invalidQuestions.length} questions not completed. Please fill in all question, options, and solution.`);
       return;
     }
     
@@ -425,7 +425,7 @@ function QuestionManagementPage() {
     setError(null);
     
     try {
-      // Chuẩn bị dữ liệu gửi lên theo đúng định dạng API mong đợi
+      // Prepare data to send in the correct format expected by API
       const questionData = {
         topic: topic,
         questions: allQuestions.map(q => ({
@@ -437,16 +437,16 @@ function QuestionManagementPage() {
         }))
       };
       
-      console.log("Dữ liệu gửi lên server:", questionData);
+      console.log("Data sent to server:", questionData);
       
       let response;
       
-      // Nếu đang chỉnh sửa chủ đề đã tồn tại
+      // If editing existing topic
       if (currentTopicId) {
         response = await updateExistingQuestionSet(currentTopicId, questionData);
-        console.log("Đã cập nhật chủ đề hiện tại:", response.data);
+        console.log("Updated existing topic:", response.data);
       } else {
-        // Tạo mới nếu là chủ đề mới
+        // Create new if it's new topic
         response = await axios.post(`${config.apiEndpoints.admin}/questions`, 
           questionData,
           {
@@ -457,23 +457,23 @@ function QuestionManagementPage() {
           }
         );
         
-        // Cập nhật currentTopicId với ID vừa tạo
+        // Update currentTopicId with newly created ID
         if (response.data && response.data.question_set_id) {
           setCurrentTopicId(response.data.question_set_id);
         }
         
-        console.log("Đã tạo chủ đề mới:", response.data);
+        console.log("Created new topic:", response.data);
       }
       
-      console.log("Phản hồi từ server:", response.data);
+      console.log("Server response:", response.data);
       
       if (response.status === 200 || response.status === 201) {
         setSavedSuccessfully(true);
         
-        // Cập nhật lại danh sách chủ đề sau khi lưu
+        // Update topics list after saving
         fetchSavedTopics();
         
-        // Nếu đang trong dialog chủ đề mới, xử lý sau khi lưu
+        // If in new topic dialog, handle after saving
         if (showSaveDialog) {
           setShowSaveDialog(false);
           resetForm();
@@ -481,18 +481,18 @@ function QuestionManagementPage() {
           setTimeout(() => setSavedSuccessfully(false), 3000);
         }
       } else {
-        setError(`Lỗi: Server trả về trạng thái ${response.status}`);
+        setError(`Server returned status ${response.status}`);
       }
     } catch (err) {
-      console.error("Lỗi khi lưu câu hỏi:", err);
-      // Hiển thị thông báo lỗi cụ thể từ server nếu có
+      console.error("Error saving questions:", err);
+      // Show specific error from server if available
       if (err.response && err.response.data && err.response.data.error) {
-        setError(`Không thể lưu câu hỏi: ${err.response.data.error}`);
+        setError(`Could not save questions: ${err.response.data.error}`);
       } else {
-        setError("Không thể lưu câu hỏi: Lỗi kết nối hoặc máy chủ không phản hồi");
+        setError("Could not save questions: API connection or server not responding");
       }
       
-      // Nếu đang trong dialog chủ đề mới, đóng dialog
+      // If in new topic dialog, close dialog
       if (showSaveDialog) {
         setShowSaveDialog(false);
       }
@@ -508,21 +508,21 @@ function QuestionManagementPage() {
     setTopicLocked(false);
     setError(null);
     setIsCreatingNew(false);
-    setCurrentTopicId(null); // Reset currentTopicId khi reset form
+    setCurrentTopicId(null); // Reset currentTopicId when reset form
   };
   
-  // Xử lý xóa chủ đề
+  // Handle topic deletion
   const handleDeleteTopic = (topicId, topicName, event) => {
-    // Ngăn sự kiện click lan ra thẻ cha
+    // Prevent event propagation to parent element
     event.stopPropagation();
     
-    // Xác nhận bằng hộp thoại nhỏ (confirm browser)
-    if (window.confirm(`Bạn có chắc chắn muốn xóa chủ đề "${topicName}"?`)) {
+    // Confirm with small dialog (confirm browser)
+    if (window.confirm(`Are you sure you want to delete topic "${topicName}"?`)) {
       deleteTopicById(topicId, topicName);
     }
   };
   
-  // Xóa chủ đề theo ID
+  // Delete topic by ID
   const deleteTopicById = async (topicId, topicName) => {
     setLoading(true);
     
@@ -533,26 +533,26 @@ function QuestionManagementPage() {
         }
       });
       
-      console.log("Kết quả xóa chủ đề:", response.data);
+      console.log("Topic deletion result:", response.data);
       
-      // Cập nhật lại danh sách chủ đề
+      // Update topics list
       fetchSavedTopics();
       
-      // Hiển thị thông báo xóa thành công dạng toast
-      setDeleteSuccessMessage(`Đã xóa chủ đề "${topicName}" thành công`);
+      // Show success deletion toast
+      setDeleteSuccessMessage(`Topic "${topicName}" deleted successfully`);
       
-      // Tự động ẩn thông báo sau 3 giây
+      // Automatically hide success toast after 3 seconds
       setTimeout(() => {
         setDeleteSuccessMessage(null);
       }, 3000);
       
     } catch (err) {
-      console.error("Lỗi khi xóa chủ đề:", err);
+      console.error("Error deleting topic:", err);
       
-      // Hiển thị thông báo lỗi dạng toast
-      setError("Không thể xóa chủ đề. Vui lòng thử lại sau.");
+      // Show error toast
+      setError("Could not delete topic. Please try again later.");
       
-      // Tự động ẩn thông báo lỗi sau 3 giây
+      // Automatically hide error toast after 3 seconds
       setTimeout(() => {
         setError(null);
       }, 3000);
@@ -564,14 +564,14 @@ function QuestionManagementPage() {
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Quản lý câu hỏi</h1>
+        <h1 className="text-2xl font-bold">Question Management</h1>
         <div className="flex space-x-2">
           {isCreatingNew && (
             <button 
               onClick={handleBackToTopics}
               className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded"
             >
-              Quay lại danh sách
+              Go back to topics list
             </button>
           )}
           <button 
@@ -587,15 +587,15 @@ function QuestionManagementPage() {
       
       {!isCreatingNew ? (
         <>
-          {/* Danh sách chủ đề chính */}
+          {/* Topics list */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="font-bold">Các chủ đề</h2>
+              <h2 className="font-bold">Topics</h2>
               <button 
                 className="px-4 py-2 bg-blue-500 text-white rounded"
                 onClick={handleCreateNew}
               >
-                Tạo mới
+                Create new
               </button>
             </div>
             
@@ -604,7 +604,7 @@ function QuestionManagementPage() {
                 <input
                   type="text"
                   className="w-full px-3 py-2 border rounded focus:outline-none"
-                  placeholder="Tìm kiếm chủ đề..."
+                  placeholder="Search topics..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -614,7 +614,7 @@ function QuestionManagementPage() {
                 {loadingSavedTopics ? (
                   <div className="flex justify-center items-center p-4">
                     <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
-                    <span>Đang tải...</span>
+                    <span>Loading...</span>
                   </div>
                 ) : filteredTopics.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -626,15 +626,15 @@ function QuestionManagementPage() {
                       >
                         <h3 className="font-medium mb-2 pr-6">{savedTopic.name}</h3>
                         <div className="flex justify-between text-sm text-gray-500">
-                          <span>{savedTopic.questionCount || 0} câu hỏi</span>
-                          <span>Cập nhật: {new Date(savedTopic.updatedAt).toLocaleDateString()}</span>
+                          <span>{savedTopic.questionCount || 0} questions</span>
+                          <span>Updated: {new Date(savedTopic.updatedAt).toLocaleDateString()}</span>
                         </div>
                         
-                        {/* Nút xóa */}
+                        {/* Delete button */}
                         <button 
                           className="absolute top-2 right-2 p-1.5 text-red-500 hover:bg-red-50 rounded-full"
                           onClick={(e) => handleDeleteTopic(savedTopic._id, savedTopic.name, e)}
-                          title="Xóa chủ đề"
+                          title="Delete topic"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -647,22 +647,22 @@ function QuestionManagementPage() {
                   <div className="text-center p-6 text-gray-500">
                     {searchTerm ? (
                       <div>
-                        <p className="mb-3">Không tìm thấy chủ đề nào khớp với từ khóa.</p>
+                        <p className="mb-3">No topics found matching the keyword.</p>
                         <button 
                           className="px-4 py-2 bg-blue-500 text-white rounded"
                           onClick={handleCreateNew}
                         >
-                          Tạo chủ đề mới
+                          Create new topic
                         </button>
                       </div>
                     ) : (
                       <div>
-                        <p className="mb-3">Chưa có chủ đề nào được lưu.</p>
+                        <p className="mb-3">No topics have been saved.</p>
                         <button 
                           className="px-4 py-2 bg-blue-500 text-white rounded"
                           onClick={handleCreateNew}
                         >
-                          Tạo chủ đề đầu tiên
+                          Create first topic
                         </button>
                       </div>
                     )}
@@ -674,19 +674,19 @@ function QuestionManagementPage() {
         </>
       ) : (
         <>
-          {/* Giao diện tạo/chỉnh sửa chủ đề */}
+          {/* Topic creation/editing interface */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
             <div className="p-4">
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-gray-700 text-sm font-bold" htmlFor="topic">
-                  Chủ đề
+                  Topic
                 </label>
                 {topicLocked && (
                   <button 
                     className="text-xs text-blue-600 px-2 py-1 rounded hover:bg-blue-50"
                     onClick={handleNewTopic}
                   >
-                    Chủ đề mới
+                    New topic
                   </button>
                 )}
               </div>
@@ -695,7 +695,7 @@ function QuestionManagementPage() {
                   id="topic"
                   type="text" 
                   className={`w-full px-3 py-2 border rounded-l-lg focus:outline-none ${topicLocked ? 'bg-gray-100' : ''}`} 
-                  placeholder="Nhập chủ đề (ví dụ: Phương trình bậc 2)" 
+                  placeholder="Enter topic (e.g., Quadratic Equation)" 
                   value={topic}
                   onChange={(e) => !topicLocked && setTopic(e.target.value)}
                   readOnly={topicLocked}
@@ -708,9 +708,9 @@ function QuestionManagementPage() {
                   {generatingQuestions ? 
                     <div className="flex items-center">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      <span>Đang tạo...</span>
+                      <span>Creating...</span>
                     </div> : 
-                    <span>Tạo câu hỏi</span>
+                    <span>Create question</span>
                   }
                 </button>
               </div>
@@ -725,7 +725,7 @@ function QuestionManagementPage() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-4">
               <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="font-bold">
-                  Câu hỏi {currentQuestionIndex + 1}/{allQuestions.length}
+                  Question {currentQuestionIndex + 1}/{allQuestions.length}
                 </h2>
                 <div className="flex space-x-2">
                   <button 
@@ -751,7 +751,7 @@ function QuestionManagementPage() {
                 <div className="p-4">
                   <div className="mb-4">
                     <label className="block text-gray-700 text-sm font-bold mb-2">
-                      Nội dung câu hỏi
+                      Question content
                     </label>
                     <textarea 
                       className="w-full px-3 py-2 border rounded focus:outline-none" 
@@ -763,7 +763,7 @@ function QuestionManagementPage() {
                   
                   <div className="mb-4">
                     <label className="block text-gray-700 text-sm font-bold mb-2">
-                      Các lựa chọn
+                      Options
                     </label>
                     {currentQuestion.options.map((option, index) => (
                       <div key={index} className="flex items-center mb-2">
@@ -783,7 +783,7 @@ function QuestionManagementPage() {
                           className="flex-1 px-3 py-2 border rounded focus:outline-none"
                           value={option}
                           onChange={(e) => updateOption(index, e.target.value)}
-                          placeholder={`Lựa chọn ${String.fromCharCode(65 + index)}`}
+                          placeholder={`Option ${String.fromCharCode(65 + index)}`}
                         />
                       </div>
                     ))}
@@ -791,22 +791,22 @@ function QuestionManagementPage() {
                   
                   <div className="mb-4">
                     <label className="block text-gray-700 text-sm font-bold mb-2">
-                      Độ khó
+                      Difficulty
                     </label>
                     <select 
                       className="w-full px-3 py-2 border rounded focus:outline-none"
                       value={currentQuestion.difficulty}
                       onChange={(e) => updateCurrentQuestion("difficulty", e.target.value)}
                     >
-                      <option value="easy">Dễ (Mức 1)</option>
-                      <option value="medium">Trung bình (Mức 2)</option>
-                      <option value="hard">Khó (Mức 3)</option>
+                      <option value="easy">Easy (Level 1)</option>
+                      <option value="medium">Medium (Level 2)</option>
+                      <option value="hard">Hard (Level 3)</option>
                     </select>
                   </div>
                   
                   <div className="mb-6">
                     <label className="block text-gray-700 text-sm font-bold mb-2">
-                      Lời giải
+                      Solution
                     </label>
                     <textarea 
                       className="w-full px-3 py-2 border rounded focus:outline-none" 
@@ -822,14 +822,14 @@ function QuestionManagementPage() {
                       onClick={goToPrevQuestion}
                       disabled={currentQuestionIndex === 0}
                     >
-                      ← Câu trước
+                      ← Previous question
                     </button>
                     <button 
                       className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
                       onClick={goToNextQuestion}
                       disabled={currentQuestionIndex === allQuestions.length - 1}
                     >
-                      Câu tiếp theo →
+                      Next question →
                     </button>
                   </div>
                 </div>
@@ -847,9 +847,9 @@ function QuestionManagementPage() {
                 {loading ? 
                   <div className="flex items-center justify-center">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    <span>Đang lưu...</span>
+                    <span>Saving...</span>
                   </div> : 
-                  <span>Lưu tất cả câu hỏi</span>
+                  <span>Save all questions</span>
                 }
               </button>
               
@@ -858,14 +858,14 @@ function QuestionManagementPage() {
                 onClick={generateQuestions}
                 disabled={generatingQuestions || !topic.trim() || !topicLocked}
               >
-                Tạo thêm câu hỏi
+                Create more questions
               </button>
             </div>
           )}
         </>
       )}
       
-      {/* Thông báo lưu thành công */}
+      {/* Success save notification */}
       {savedSuccessfully && (
         <div className="fixed bottom-6 right-6 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md">
           <div className="flex">
@@ -875,14 +875,14 @@ function QuestionManagementPage() {
               </svg>
             </div>
             <div>
-              <p className="font-bold">Lưu thành công!</p>
-              <p className="text-sm">Tất cả câu hỏi đã được lưu vào hệ thống.</p>
+              <p className="font-bold">Save successful!</p>
+              <p className="text-sm">All questions have been saved to the system.</p>
             </div>
           </div>
         </div>
       )}
       
-      {/* Thông báo xóa thành công */}
+      {/* Success deletion notification */}
       {deleteSuccessMessage && (
         <div className="fixed bottom-6 right-6 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md">
           <div className="flex">
@@ -892,31 +892,31 @@ function QuestionManagementPage() {
               </svg>
             </div>
             <div>
-              <p className="font-bold">Xóa thành công!</p>
+              <p className="font-bold">Delete successful!</p>
               <p className="text-sm">{deleteSuccessMessage}</p>
             </div>
           </div>
         </div>
       )}
       
-      {/* Dialog xác nhận lưu */}
+      {/* Save confirmation dialog */}
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-80 max-w-md shadow-xl">
-            <h3 className="text-lg font-bold mb-4">Lưu câu hỏi?</h3>
-            <p className="mb-4">Bạn có muốn lưu các câu hỏi đã tạo cho chủ đề "{topic}" trước khi thoát không?</p>
+            <h3 className="text-lg font-bold mb-4">Save questions?</h3>
+            <p className="mb-4">Do you want to save the questions you've created for topic "{topic}" before exiting?</p>
             <div className="flex justify-end gap-2">
               <button 
                 className="px-4 py-2 bg-gray-300 rounded"
                 onClick={() => handleSaveDialogResponse(false)}
               >
-                Không lưu
+                Don't save
               </button>
               <button 
                 className="px-4 py-2 bg-blue-500 text-white rounded"
                 onClick={() => handleSaveDialogResponse(true)}
               >
-                Lưu
+                Save
               </button>
             </div>
           </div>

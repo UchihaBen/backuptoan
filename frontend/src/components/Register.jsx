@@ -1,7 +1,7 @@
-// Register.jsx - Trang đăng ký
+// Register.jsx - Registration page
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../lib/api"; // Thay đổi import ở đây
+import { api } from "../lib/api"; // Import api instance
 
 function Register() {
   const navigate = useNavigate();
@@ -25,25 +25,25 @@ function Register() {
 
   const validateForm = () => {
     if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError("Vui lòng điền đầy đủ thông tin");
+      setError("Please fill in all fields");
       return false;
     }
     
     if (formData.password !== formData.confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp");
+      setError("Passwords do not match");
       return false;
     }
     
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError("Email không hợp lệ");
+      setError("Invalid email format");
       return false;
     }
     
     // Validate password strength
     if (formData.password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự");
+      setError("Password must be at least 6 characters");
       return false;
     }
     
@@ -62,14 +62,14 @@ function Register() {
     setIsLoading(true);
     
     try {
-      // Sử dụng api instance thay vì axios trực tiếp
+      // Use api instance instead of axios directly
       const response = await api.post("/api/auth/register", {
         username: formData.username,
         email: formData.email,
         password: formData.password
       });
       
-      setSuccess("Đăng ký thành công! Bạn sẽ được chuyển hướng đến trang đăng nhập.");
+      setSuccess("Registration successful! You will be redirected to the login page.");
       
       // Redirect to login page after 2 seconds
       setTimeout(() => {
@@ -77,8 +77,20 @@ function Register() {
       }, 2000);
       
     } catch (error) {
-      const message = error.response?.data?.error || "Đăng ký thất bại, vui lòng thử lại";
-      setError(message);
+      // Handle server error messages that may be in Vietnamese
+      if (error.response?.data?.error) {
+        const errorMsg = error.response.data.error;
+        // Check for common Vietnamese error messages and translate them
+        if (errorMsg.includes("đã tồn tại") || errorMsg.includes("đã được sử dụng")) {
+          setError("This username or email is already in use");
+        } else if (errorMsg.includes("không hợp lệ")) {
+          setError("Invalid input data");
+        } else {
+          setError(errorMsg); // Use the original message if no translation match
+        }
+      } else {
+        setError("Registration failed, please try again");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +99,7 @@ function Register() {
   return (
     <div className="h-screen flex flex-col justify-center items-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-96">
-        <h2 className="text-2xl font-bold mb-6 text-center">Đăng ký tài khoản</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">Register Account</h2>
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -104,13 +116,13 @@ function Register() {
         <form onSubmit={handleRegister}>
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">
-              Tên đăng nhập
+              Username
             </label>
             <input
               id="username"
               name="username"
               type="text"
-              placeholder="Tên đăng nhập"
+              placeholder="Enter username"
               className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.username}
               onChange={handleChange}
@@ -125,7 +137,7 @@ function Register() {
               id="email"
               name="email"
               type="email"
-              placeholder="Email"
+              placeholder="Enter email"
               className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.email}
               onChange={handleChange}
@@ -134,13 +146,13 @@ function Register() {
           
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-              Mật khẩu
+              Password
             </label>
             <input
               id="password"
               name="password"
               type="password"
-              placeholder="Mật khẩu"
+              placeholder="Enter password"
               className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.password}
               onChange={handleChange}
@@ -149,13 +161,13 @@ function Register() {
           
           <div className="mb-6">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="confirmPassword">
-              Xác nhận mật khẩu
+              Confirm Password
             </label>
             <input
               id="confirmPassword"
               name="confirmPassword"
               type="password"
-              placeholder="Xác nhận mật khẩu"
+              placeholder="Confirm password"
               className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.confirmPassword}
               onChange={handleChange}
@@ -167,15 +179,15 @@ function Register() {
             className={`w-full p-3 rounded-lg text-white font-bold ${isLoading ? 'bg-blue-300' : 'bg-blue-500 hover:bg-blue-600'}`}
             disabled={isLoading}
           >
-            {isLoading ? "Đang xử lý..." : "Đăng ký"}
+            {isLoading ? "Processing..." : "Register"}
           </button>
         </form>
         
         <div className="mt-6 text-center">
           <p className="text-gray-600">
-            Đã có tài khoản?{" "}
+            Already have an account?{" "}
             <a href="/login" className="text-blue-500 hover:underline">
-              Đăng nhập
+              Login
             </a>
           </p>
         </div>

@@ -1,4 +1,4 @@
-// ForgotPassword.jsx - Trang quên mật khẩu
+// ForgotPassword.jsx - Forgot password page
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -17,13 +17,13 @@ function ForgotPassword() {
 
   const validateEmail = () => {
     if (!email) {
-      setError("Vui lòng nhập email");
+      setError("Please enter your email");
       return false;
     }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError("Email không hợp lệ");
+      setError("Invalid email format");
       return false;
     }
     
@@ -32,17 +32,17 @@ function ForgotPassword() {
 
   const validatePassword = () => {
     if (!newPassword || !confirmPassword) {
-      setError("Vui lòng nhập mật khẩu mới và xác nhận");
+      setError("Please enter new password and confirmation");
       return false;
     }
     
     if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp");
+      setError("Passwords do not match");
       return false;
     }
     
     if (newPassword.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự");
+      setError("Password must be at least 6 characters");
       return false;
     }
     
@@ -64,7 +64,7 @@ function ForgotPassword() {
         email
       });
       
-      setSuccess("Yêu cầu đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email của bạn.");
+      setSuccess("Password reset request has been sent. Please check your email.");
       
       // Trong môi trường dev, có thể hiển thị token để test
       if (response.data.token) {
@@ -73,7 +73,7 @@ function ForgotPassword() {
       }
       
     } catch (error) {
-      const message = error.response?.data?.error || "Không thể gửi yêu cầu, vui lòng thử lại sau";
+      const message = error.response?.data?.error || "Unable to send request, please try again later";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -96,7 +96,7 @@ function ForgotPassword() {
         password: newPassword
       });
       
-      setSuccess("Mật khẩu đã được đặt lại thành công! Bạn sẽ được chuyển hướng đến trang đăng nhập.");
+      setSuccess("Password has been reset successfully! You will be redirected to the login page.");
       
       // Redirect to login page after 2 seconds
       setTimeout(() => {
@@ -104,7 +104,7 @@ function ForgotPassword() {
       }, 2000);
       
     } catch (error) {
-      const message = error.response?.data?.error || "Không thể đặt lại mật khẩu, vui lòng thử lại";
+      const message = error.response?.data?.error || "Unable to reset password, please try again";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -115,7 +115,7 @@ function ForgotPassword() {
     <div className="h-screen flex flex-col justify-center items-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-96">
         <h2 className="text-2xl font-bold mb-6 text-center">
-          {isReset ? "Đặt lại mật khẩu" : "Quên mật khẩu"}
+          {isReset ? "Reset Password" : "Forgot Password"}
         </h2>
         
         {error && (
@@ -139,7 +139,7 @@ function ForgotPassword() {
               <input
                 id="email"
                 type="email"
-                placeholder="Nhập email của bạn"
+                placeholder="Enter your email"
                 className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -151,19 +151,19 @@ function ForgotPassword() {
               className={`w-full p-3 rounded-lg text-white font-bold ${isLoading ? 'bg-blue-300' : 'bg-blue-500 hover:bg-blue-600'}`}
               disabled={isLoading}
             >
-              {isLoading ? "Đang xử lý..." : "Gửi yêu cầu"}
+              {isLoading ? "Processing..." : "Send Request"}
             </button>
           </form>
         ) : (
           <form onSubmit={handleResetPassword}>
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="newPassword">
-                Mật khẩu mới
+                New Password
               </label>
               <input
                 id="newPassword"
                 type="password"
-                placeholder="Nhập mật khẩu mới"
+                placeholder="Enter new password"
                 className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -172,12 +172,12 @@ function ForgotPassword() {
             
             <div className="mb-6">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="confirmPassword">
-                Xác nhận mật khẩu
+                Confirm Password
               </label>
               <input
                 id="confirmPassword"
                 type="password"
-                placeholder="Xác nhận mật khẩu mới"
+                placeholder="Confirm new password"
                 className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -189,14 +189,14 @@ function ForgotPassword() {
               className={`w-full p-3 rounded-lg text-white font-bold ${isLoading ? 'bg-blue-300' : 'bg-blue-500 hover:bg-blue-600'}`}
               disabled={isLoading}
             >
-              {isLoading ? "Đang xử lý..." : "Đặt lại mật khẩu"}
+              {isLoading ? "Processing..." : "Reset Password"}
             </button>
           </form>
         )}
         
         <div className="mt-6 text-center">
           <a href="/login" className="text-blue-500 hover:underline">
-            Quay lại đăng nhập
+            Back to Login
           </a>
         </div>
       </div>

@@ -11,7 +11,7 @@ function TopicsPage() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Token lấy từ localStorage
+  // Token from localStorage
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -21,7 +21,7 @@ function TopicsPage() {
   const fetchTopics = async () => {
     setLoading(true);
     try {
-      // Sử dụng API endpoint dành cho người dùng thay vì admin
+      // Use user API endpoint instead of admin
       const response = await axios.get(`${config.apiEndpoints.admin}/topics`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -31,18 +31,18 @@ function TopicsPage() {
       if (response.data && response.data.question_sets) {
         setTopics(response.data.question_sets);
       } else {
-        setError("Không thể tải danh sách chủ đề");
+        setError("Unable to load topic list");
       }
     } catch (err) {
-      console.error("Lỗi khi lấy danh sách chủ đề:", err);
-      setError("Lỗi khi tải danh sách chủ đề. Vui lòng thử lại sau.");
+      console.error("Error getting topic list:", err);
+      setError("Error loading topic list. Please try again later.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleTopicClick = (topicId, topicName, questionCount) => {
-    // Điều hướng đến trang quiz setup với chủ đề đã chọn
+    // Navigate to quiz setup page with selected topic
     navigate("/quiz-setup", { 
       state: { 
         topic: topicName,
@@ -52,7 +52,7 @@ function TopicsPage() {
     });
   };
 
-  // Lọc danh sách chủ đề theo từ khóa tìm kiếm
+  // Filter topic list by search keyword
   const filteredTopics = searchTerm.trim() === ''
     ? topics
     : topics.filter(topic =>
@@ -62,19 +62,19 @@ function TopicsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Ôn luyện theo chủ đề</h1>
+        <h1 className="text-2xl font-bold">Study by Topic</h1>
         <button
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           onClick={() => navigate("/home")}
         >
-          Quay lại
+          Back
         </button>
       </div>
 
       <div className="mb-6">
         <input
           type="text"
-          placeholder="Tìm kiếm chủ đề..."
+          placeholder="Search topics..."
           className="w-full p-3 border border-gray-300 rounded-lg"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -92,7 +92,7 @@ function TopicsPage() {
       ) : filteredTopics.length === 0 ? (
         <div className="text-center py-10">
           <p className="text-lg text-gray-600">
-            {searchTerm.trim() ? "Không tìm thấy chủ đề phù hợp" : "Chưa có chủ đề nào được tạo"}
+            {searchTerm.trim() ? "No matching topics found" : "No topics have been created yet"}
           </p>
         </div>
       ) : (
@@ -104,15 +104,15 @@ function TopicsPage() {
             >
               <h2 className="text-xl font-semibold mb-2">{topic.name}</h2>
               <div className="flex justify-between text-sm text-gray-600">
-                <span>{topic.questionCount} câu hỏi</span>
-                <span>Cập nhật: {new Date(topic.updatedAt).toLocaleDateString()}</span>
+                <span>{topic.questionCount} questions</span>
+                <span>Updated: {new Date(topic.updatedAt).toLocaleDateString()}</span>
               </div>
               <div className="mt-4 flex space-x-2">
                 <button 
                   className="flex-1 bg-blue-100 text-blue-700 py-2 rounded-lg hover:bg-blue-200 transition"
                   onClick={() => handleTopicClick(topic._id, topic.name, topic.questionCount)}
                 >
-                  Bắt đầu luyện tập
+                  Start Practice
                 </button>
                 <TopicHistoryButton topicId={topic._id} topicName={topic.name} />
               </div>

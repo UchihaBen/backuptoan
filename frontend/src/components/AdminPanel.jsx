@@ -7,7 +7,7 @@ function AdminPanel() {
   
   return (
     <div className="container mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6 text-center">Bảng điều khiển Admin</h1>
+      <h1 className="text-2xl font-bold mb-6 text-center">Admin Dashboard</h1>
       
       <div className="bg-blue-50 rounded-lg p-4 mb-6 flex items-center">
         <div className="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center text-xl font-bold mr-3">
@@ -16,7 +16,7 @@ function AdminPanel() {
         <div>
           <p className="font-medium">{user.username || "Admin"}</p>
           <p className="text-sm text-gray-600">{user.email || "admin@example.com"}</p>
-          <p className="text-xs text-blue-600 font-medium">Quản trị viên</p>
+          <p className="text-xs text-blue-600 font-medium">Administrator</p>
         </div>
       </div>
       
@@ -31,8 +31,8 @@ function AdminPanel() {
             </svg>
           </div>
           <div className="text-left">
-            <h3 className="font-semibold">Quản lý người dùng</h3>
-            <p className="text-sm text-gray-600">Xem, thêm, xóa và phân quyền người dùng</p>
+            <h3 className="font-semibold">User Management</h3>
+            <p className="text-sm text-gray-600">View, add, delete and manage user permissions</p>
           </div>
         </button>
         
@@ -47,8 +47,8 @@ function AdminPanel() {
             </svg>
           </div>
           <div className="text-left">
-            <h3 className="font-semibold">Quản lý câu hỏi</h3>
-            <p className="text-sm text-gray-600">Tạo, chỉnh sửa, xóa bộ câu hỏi theo chủ đề</p>
+            <h3 className="font-semibold">Question Management</h3>
+            <p className="text-sm text-gray-600">Create, edit, delete question sets by topic</p>
           </div>
         </button>
         
@@ -62,8 +62,8 @@ function AdminPanel() {
             </svg>
           </div>
           <div className="text-left">
-            <h3 className="font-semibold">Quay lại trang chính</h3>
-            <p className="text-sm text-gray-600">Trở về trang chủ ứng dụng</p>
+            <h3 className="font-semibold">Return to Main Page</h3>
+            <p className="text-sm text-gray-600">Go back to the application home page</p>
           </div>
         </button>
       </div>

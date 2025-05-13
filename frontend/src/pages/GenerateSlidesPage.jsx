@@ -15,7 +15,7 @@ function GenerateSlidesPage() {
     e.preventDefault();
     
     if (!topic.trim()) {
-      setError("Vui lòng nhập chủ đề cho slide");
+      setError("Please enter a topic for the slide");
       return;
     }
 
@@ -33,18 +33,18 @@ function GenerateSlidesPage() {
         try {
           console.log("API response:", response.data);
           
-          // Kiểm tra nếu có lỗi
+          // Check if there's an error
           if (response.data.error) {
             throw new Error(response.data.error);
           }
           
-          // Nếu có slides_data trực tiếp từ API
+          // If slides_data is directly available from API
           if (response.data.slides_data) {
             setSlideData(response.data.slides_data);
             
-            // Nếu có file PowerPoint dạng base64
+            // If PowerPoint file is available as base64
             if (response.data.ppt_base64) {
-              // Chuyển base64 thành blob
+              // Convert base64 to blob
               const byteCharacters = atob(response.data.ppt_base64);
               const byteNumbers = new Array(byteCharacters.length);
               for (let i = 0; i < byteCharacters.length; i++) {
@@ -53,43 +53,43 @@ function GenerateSlidesPage() {
               const byteArray = new Uint8Array(byteNumbers);
               const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
               
-              // Tạo URL cho file download
+              // Create URL for download
               const url = window.URL.createObjectURL(blob);
               setDownloadUrl(url);
               console.log("PowerPoint data received successfully!");
             }
           } 
-          // Nếu chỉ có answer dạng text, thử parse
+          // If only answer is available as text, try to parse it
           else if (response.data.answer) {
-            // Xử lý JSON string để loại bỏ markdown code block markers
+            // Process JSON string to remove markdown code block markers
             const jsonString = response.data.answer
-              .replace(/```json\n?|```/g, "")  // Xóa ký hiệu code block JSON
-              .replace(/(?<!\\)\\(?!\\)/g, "\\\\")  // Chỉ thay \ đơn thành \\ nhưng giữ nguyên \\ đã có
+              .replace(/```json\n?|```/g, "")  // Remove JSON code block markers
+              .replace(/(?<!\\)\\(?!\\)/g, "\\\\")  // Replace single \ with \\ but keep existing \\
               .trim();
             
             console.log("Processed JSON string:", jsonString);
             
-            // Parse chuỗi JSON đã xử lý
+            // Parse the processed JSON string
             const parsedData = JSON.parse(jsonString);
             console.log("Parsed data:", parsedData);
             
             setSlideData(parsedData);
             
-            // Hiển thị thông báo lỗi vì không có file PowerPoint
-            setError("Không thể tạo file PowerPoint. Vui lòng thử lại sau.");
+            // Show error message because PowerPoint file is not available
+            setError("Could not create PowerPoint file. Please try again later.");
           } else {
-            throw new Error("Không nhận được dữ liệu hợp lệ từ server");
+            throw new Error("No valid data received from server");
           }
         } catch (error) {
-          console.error("Lỗi khi xử lý dữ liệu slide:", error);
-          setError("Dữ liệu không hợp lệ. Vui lòng thử lại với chủ đề khác.");
+          console.error("Error processing slide data:", error);
+          setError("Invalid data. Please try again with a different topic.");
         }
       } else {
-        setError("Không nhận được dữ liệu hợp lệ từ server");
+        setError("No valid data received from server");
       }
     } catch (err) {
-      console.error("Lỗi khi gọi API:", err);
-      setError("Có lỗi xảy ra khi tạo slide. Vui lòng thử lại sau.");
+      console.error("Error calling API:", err);
+      setError("An error occurred while creating slides. Please try again later.");
     } finally {
       setIsLoading(false);
     }
@@ -112,24 +112,24 @@ function GenerateSlidesPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Tạo Slide Thuyết Trình</h1>
+      <h1 className="text-2xl font-bold mb-6">Create Presentation Slides</h1>
       
       <div className="bg-white rounded-lg shadow p-6 mb-8">
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label htmlFor="topic" className="block text-sm font-medium text-gray-700 mb-2">
-              Chủ đề bài giảng
+              Lesson Topic
             </label>
             <input
               type="text"
               id="topic"
               className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ví dụ: Phép nhân phân số, Giải phương trình bậc hai, Đạo hàm hàm số,..."
+              placeholder="Example: Fraction multiplication, Solving quadratic equations, Function derivatives..."
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
             <p className="text-sm text-gray-500 mt-1">
-              Nhập chủ đề môn toán cần tạo slide. Hệ thống sẽ tự động tạo nội dung chi tiết.
+              Enter the math topic to create slides. The system will automatically generate detailed content.
             </p>
           </div>
           
@@ -141,9 +141,9 @@ function GenerateSlidesPage() {
             {isLoading ? (
               <>
                 <FaSpinner className="inline mr-2 animate-spin" />
-                Đang tạo slide...
+                Creating slides...
               </>
-            ) : "Tạo Slide PowerPoint"}
+            ) : "Create PowerPoint Slides"}
           </button>
         </form>
       </div>
@@ -166,13 +166,13 @@ function GenerateSlidesPage() {
       {slideData && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Slide đã tạo: {topic}</h2>
+            <h2 className="text-xl font-semibold">Created Slides: {topic}</h2>
             <div className="flex space-x-2">
               <button
                 onClick={togglePreview}
                 className="flex items-center px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
-                <FaEye className="mr-2" /> {showPreview ? "Ẩn xem trước" : "Xem trước"}
+                <FaEye className="mr-2" /> {showPreview ? "Hide Preview" : "Preview"}
               </button>
               
               <button
@@ -180,7 +180,7 @@ function GenerateSlidesPage() {
                 disabled={!downloadUrl}
                 className="flex items-center px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                <FaDownload className="mr-2" /> Tải xuống (.pptx)
+                <FaDownload className="mr-2" /> Download (.pptx)
               </button>
             </div>
           </div>
@@ -201,11 +201,12 @@ function GenerateSlidesPage() {
                         </div>
                       </div>
                     ))}
-                    
                     {slide.notes && (
-                      <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-sm">
-                        <p className="font-semibold">Ghi chú:</p>
-                        <p>{slide.notes}</p>
+                      <div className="mt-4 p-2 bg-yellow-50 border border-yellow-100 rounded">
+                        <p className="text-sm text-gray-700 italic">
+                          <span className="font-medium">Note: </span>
+                          {slide.notes}
+                        </p>
                       </div>
                     )}
                   </div>

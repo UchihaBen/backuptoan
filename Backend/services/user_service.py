@@ -3,50 +3,50 @@ from mongoDB.config import users_collection
 
 def create_user(user_data):
     """
-    Tạo người dùng mới
+    Create a new user
     
     Args:
-        user_data (dict): Dữ liệu người dùng
+        user_data (dict): User data
         
     Returns:
-        ObjectId: ID của người dùng vừa tạo
+        ObjectId: ID of the newly created user
         
     Raises:
-        ValueError: Nếu username hoặc email đã tồn tại
+        ValueError: If username or email already exists
     """
-    # Kiểm tra username đã tồn tại chưa
+    # Check if username already exists
     if users_collection.find_one({"username": user_data['username']}):
-        raise ValueError("Tên đăng nhập đã tồn tại")
+        raise ValueError("Username already exists")
     
-    # Kiểm tra email đã tồn tại chưa
+    # Check if email already exists
     if users_collection.find_one({"email": user_data['email']}):
-        raise ValueError("Email đã tồn tại")
+        raise ValueError("Email already exists")
     
-    # Thêm người dùng vào database
+    # Add user to database
     result = users_collection.insert_one(user_data)
     return result.inserted_id
 
 def get_user_by_id(user_id):
     """
-    Lấy thông tin người dùng theo ID
+    Get user information by ID
     
     Args:
-        user_id (str): ID người dùng
+        user_id (str): User ID
         
     Returns:
-        dict: Thông tin người dùng (không bao gồm mật khẩu)
+        dict: User information (excluding password)
     """
-    # Chuyển đổi user_id thành ObjectId nếu là string
+    # Convert user_id to ObjectId if it's a string
     if isinstance(user_id, str):
         user_id = ObjectId(user_id)
     
-    # Tìm người dùng
+    # Find user
     user = users_collection.find_one({"_id": user_id})
     
     if user:
-        # Chuyển ObjectId sang string để serialization JSON
+        # Convert ObjectId to string for JSON serialization
         user['_id'] = str(user['_id'])
-        # Loại bỏ mật khẩu
+        # Remove password
         if 'password' in user:
             del user['password']
     
@@ -54,71 +54,71 @@ def get_user_by_id(user_id):
 
 def get_user_by_username(username):
     """
-    Lấy thông tin người dùng theo username
+    Get user information by username
     
     Args:
-        username (str): Tên đăng nhập
+        username (str): Username
         
     Returns:
-        dict: Thông tin người dùng (bao gồm mật khẩu để xác thực)
+        dict: User information (including password for authentication)
     """
     user = users_collection.find_one({"username": username})
     
     if user:
-        # Chuyển ObjectId sang string để serialization JSON
+        # Convert ObjectId to string for JSON serialization
         user['_id'] = str(user['_id'])
     
     return user
 
 def get_user_by_email(email):
     """
-    Lấy thông tin người dùng theo email
+    Get user information by email
     
     Args:
-        email (str): Email người dùng
+        email (str): User email
         
     Returns:
-        dict: Thông tin người dùng (bao gồm mật khẩu để xác thực)
+        dict: User information (including password for authentication)
     """
     user = users_collection.find_one({"email": email})
     
     if user:
-        # Chuyển ObjectId sang string để serialization JSON
+        # Convert ObjectId to string for JSON serialization
         user['_id'] = str(user['_id'])
     
     return user
 
 def update_user(user_id, update_data):
     """
-    Cập nhật thông tin người dùng
+    Update user information
     
     Args:
-        user_id (str): ID người dùng
-        update_data (dict): Dữ liệu cần cập nhật
+        user_id (str): User ID
+        update_data (dict): Data to update
         
     Returns:
-        bool: True nếu cập nhật thành công
+        bool: True if update is successful
         
     Raises:
-        ValueError: Nếu cập nhật username hoặc email đã tồn tại
+        ValueError: If updating to a username or email that already exists
     """
-    # Chuyển đổi user_id thành ObjectId nếu là string
+    # Convert user_id to ObjectId if it's a string
     if isinstance(user_id, str):
         user_id = ObjectId(user_id)
     
-    # Kiểm tra nếu cập nhật username
+    # Check if updating username
     if 'username' in update_data:
         existing = users_collection.find_one({"username": update_data['username'], "_id": {"$ne": user_id}})
         if existing:
-            raise ValueError("Tên đăng nhập đã tồn tại")
+            raise ValueError("Username already exists")
     
-    # Kiểm tra nếu cập nhật email
+    # Check if updating email
     if 'email' in update_data:
         existing = users_collection.find_one({"email": update_data['email'], "_id": {"$ne": user_id}})
         if existing:
-            raise ValueError("Email đã tồn tại")
+            raise ValueError("Email already exists")
     
-    # Cập nhật thông tin người dùng
+    # Update user information
     result = users_collection.update_one(
         {"_id": user_id},
         {"$set": update_data}

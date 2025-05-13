@@ -15,25 +15,25 @@ export function QuizPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [selectedOptions, setSelectedOptions] = useState({}); // Để lưu trữ các tùy chọn đã chọn
-  const [viewReview, setViewReview] = useState(false); // Để điều khiển chế độ xem lại
-  const [showSolution, setShowSolution] = useState(null); // Để hiển thị/ẩn lời giải
-  const [reviewQuestionIndex, setReviewQuestionIndex] = useState(0); // Để theo dõi câu hỏi hiện tại trong chế độ xem lại
-  const [feedback, setFeedback] = useState(null); // Để lưu trữ nhận xét từ API
-  const [loadingFeedback, setLoadingFeedback] = useState(false); // Trạng thái loading khi gọi API nhận xét
-  const [showFeedback, setShowFeedback] = useState(false); // Để kiểm soát việc hiển thị/ẩn nhận xét
-  const [retryCount, setRetryCount] = useState(0); // Đếm số lần thử lại API
-  const [isReady, setIsReady] = useState(false); // Trạng thái sẵn sàng làm bài
-  const [timer, setTimer] = useState(0); // Thời gian làm bài (giây)
-  const [timerActive, setTimerActive] = useState(false); // Trạng thái đồng hồ
-  const timerInterval = useRef(null); // Ref để lưu interval
+  const [selectedOptions, setSelectedOptions] = useState({}); // To store selected options
+  const [viewReview, setViewReview] = useState(false); // To control review mode
+  const [showSolution, setShowSolution] = useState(null); // To show/hide solution
+  const [reviewQuestionIndex, setReviewQuestionIndex] = useState(0); // To track current question in review mode
+  const [feedback, setFeedback] = useState(null); // To store feedback from API
+  const [loadingFeedback, setLoadingFeedback] = useState(false); // Loading state when calling feedback API
+  const [showFeedback, setShowFeedback] = useState(false); // To control showing/hiding feedback
+  const [retryCount, setRetryCount] = useState(0); // Count API retry attempts
+  const [isReady, setIsReady] = useState(false); // Ready state for quiz
+  const [timer, setTimer] = useState(0); // Quiz time (seconds)
+  const [timerActive, setTimerActive] = useState(false); // Timer state
+  const timerInterval = useRef(null); // Ref to store interval
 
   const location = useLocation();
   const navigate = useNavigate();
   const { topic, topicId, difficulty, distribution } = location.state || {};
   const token = localStorage.getItem("token");
   
-  // Lấy userId từ localStorage
+  // Get userId from localStorage
   let userId = null;
   const userStr = localStorage.getItem("user");
   
@@ -47,20 +47,20 @@ export function QuizPage() {
     }
   }
   
-  // Fallback nếu không lấy được từ user object
+  // Fallback if unable to get from user object
   userId = userId || localStorage.getItem("userId") || "anonymous";
 
-  // Hàm để lấy dữ liệu quiz từ API
+  // Function to fetch quiz data from API
   const fetchQuizData = async (retryAttempt = 0) => {
     if (!topic) {
-      setError("Không có chủ đề để tạo bài kiểm tra.");
+      setError("No topic provided to create a quiz.");
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      // Reset các state khi lấy câu hỏi mới
+      // Reset states when fetching new questions
       setCurrentQuestion(0);
       setSelectedOption(null);
       setScore(0);
@@ -70,7 +70,7 @@ export function QuizPage() {
       setShowSolution(null);
       setReviewQuestionIndex(0);
 
-      // Nếu có topicId, lấy câu hỏi từ bộ sưu tập đã lưu
+      // If topicId exists, get questions from saved collection
       if (topicId) {
         const response = await axios.get(`${config.apiEndpoints.admin}/topics/${topicId}`, {
           headers: {
@@ -81,32 +81,32 @@ export function QuizPage() {
         if (response.data && response.data.question_set && response.data.question_set.questions) {
           const questions = response.data.question_set.questions;
           
-          // Chuyển đổi định dạng câu hỏi và chuẩn hóa định dạng
+          // Convert question format and normalize
           const formattedAllQuestions = questions.map(q => {
-            // Xác định độ khó
-            let questionDifficulty = "Mức 2"; // Mặc định là trung bình
+            // Determine difficulty
+            let questionDifficulty = "Level 2"; // Default is medium
             
             if (q.difficulty) {
-              // Đối với độ khó là số hoặc chứa "Mức"
-              if (q.difficulty === "Mức 1" || q.difficulty === 1 || 
+              // For difficulty as number or containing "Level"
+              if (q.difficulty === "Level 1" || q.difficulty === 1 || 
                   q.difficulty.toLowerCase().includes("1") || 
                   q.difficulty.toLowerCase() === "easy" || 
                   q.difficulty.toLowerCase().includes("dễ") || 
                   q.difficulty.toLowerCase().includes("cơ bản")) {
-                questionDifficulty = "Mức 1";
+                questionDifficulty = "Level 1";
               } 
-              else if (q.difficulty === "Mức 3" || q.difficulty === 3 || 
+              else if (q.difficulty === "Level 3" || q.difficulty === 3 || 
                        q.difficulty.toLowerCase().includes("3") || 
                        q.difficulty.toLowerCase() === "hard" || 
                        q.difficulty.toLowerCase().includes("khó") || 
                        q.difficulty.toLowerCase().includes("nâng cao")) {
-                questionDifficulty = "Mức 3";
+                questionDifficulty = "Level 3";
               }
-              else if (q.difficulty === "Mức 2" || q.difficulty === 2 || 
+              else if (q.difficulty === "Level 2" || q.difficulty === 2 || 
                        q.difficulty.toLowerCase().includes("2") || 
                        q.difficulty.toLowerCase() === "medium" || 
                        q.difficulty.toLowerCase().includes("trung bình")) {
-                questionDifficulty = "Mức 2";
+                questionDifficulty = "Level 2";
               }
             }
             
@@ -133,28 +133,28 @@ export function QuizPage() {
             };
           });
           
-          // Phân loại câu hỏi theo độ khó
+          // Classify questions by difficulty
           const level1Questions = formattedAllQuestions.filter(q => 
-            q.difficulty === "Mức 1" || 
+            q.difficulty === "Level 1" || 
             q.difficulty.toLowerCase().includes("dễ") || 
             q.difficulty.toLowerCase().includes("easy") ||
             q.difficulty.toLowerCase().includes("cơ bản")
           );
           
           const level2Questions = formattedAllQuestions.filter(q => 
-            q.difficulty === "Mức 2" || 
+            q.difficulty === "Level 2" || 
             q.difficulty.toLowerCase().includes("trung bình") ||
             q.difficulty.toLowerCase().includes("medium")
           );
           
           const level3Questions = formattedAllQuestions.filter(q => 
-            q.difficulty === "Mức 3" || 
+            q.difficulty === "Level 3" || 
             q.difficulty.toLowerCase().includes("khó") || 
             q.difficulty.toLowerCase().includes("hard") ||
             q.difficulty.toLowerCase().includes("nâng cao")
           );
           
-          console.log(`Câu hỏi theo độ khó: Mức 1: ${level1Questions.length}, Mức 2: ${level2Questions.length}, Mức 3: ${level3Questions.length}`);
+          console.log(`Questions by difficulty: Level 1: ${level1Questions.length}, Level 2: ${level2Questions.length}, Level 3: ${level3Questions.length}`);
           
           // Lấy ngẫu nhiên câu hỏi theo phân bố độ khó nếu distribution được cung cấp
           let selectedQuestions = [];
@@ -248,24 +248,24 @@ export function QuizPage() {
         }
       } else {
         // Nếu không có topicId, tạo câu hỏi mới từ GenMini
-      const quizRes = await axios.post(
-        config.apiEndpoints.ragApi.multipleChoice,
-        { question: topic }
-      );
-      console.log("quizRes.data.answer", quizRes.data.answer);
-      const jsonString = quizRes.data.answer
-    .replace(/```json\n?|```/g, "")  // Xóa ký hiệu code block JSON
-    .replace(/(?<!\\)\\(?!\\)/g, "\\\\")  // Chỉ thay \ đơn thành \\ nhưng giữ nguyên \\ đã có
+        const quizRes = await axios.post(
+          config.apiEndpoints.ragApi.multipleChoice,
+          { question: topic }
+        );
+        console.log("quizRes.data.answer", quizRes.data.answer);
+        const jsonString = quizRes.data.answer
+          .replace(/```json\n?|```/g, "")  // Xóa ký hiệu code block JSON
+          .replace(/(?<!\\)\\(?!\\)/g, "\\\\")  // Chỉ thay \ đơn thành \\ nhưng giữ nguyên \\ đã có
           .trim();
 
-      console.log("jsonString", jsonString);
+        console.log("jsonString", jsonString);
 
         try {
-      const parsedQuizData = JSON.parse(jsonString);
-      console.log("parsedQuizData", parsedQuizData);
+          const parsedQuizData = JSON.parse(jsonString);
+          console.log("parsedQuizData", parsedQuizData);
 
-      if (parsedQuizData && Array.isArray(parsedQuizData.questions)) {
-        setQuizData(parsedQuizData.questions);
+          if (parsedQuizData && Array.isArray(parsedQuizData.questions)) {
+            setQuizData(parsedQuizData.questions);
             // Reset retry count khi thành công
             setRetryCount(0);
           } else {
@@ -279,7 +279,7 @@ export function QuizPage() {
             console.log(`Thử lại lần ${retryAttempt + 1} sau lỗi JSON`);
             setRetryCount(retryAttempt + 1);
             return fetchQuizData(retryAttempt + 1);
-      } else {
+          } else {
             throw new Error(`Không thể xử lý dữ liệu JSON sau 3 lần thử: ${jsonError.message}`);
           }
         }
@@ -721,11 +721,11 @@ export function QuizPage() {
 
     return (
       <div className="p-4">
-        <h2 className="text-2xl font-bold">Xem lại bài kiểm tra</h2>
+        <h2 className="text-2xl font-bold">Review Quiz</h2>
         <div className="mt-4">
           <div className="flex items-center mb-2">
             <h3 className="font-semibold mr-3">
-            Câu {reviewQuestionIndex + 1} / {quizData.length}: 
+            Question {reviewQuestionIndex + 1} / {quizData.length}: 
             </h3>
             {question.difficulty && (
               <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -769,7 +769,7 @@ export function QuizPage() {
           <div className="mt-2">
             {selectedAnswer === undefined && (
               <div className="p-2 bg-yellow-100 border rounded">
-                <span className="font-semibold">Chưa chọn đáp án</span>
+                <span className="font-semibold">No answer selected</span>
               </div>
             )}
           </div>
@@ -778,12 +778,12 @@ export function QuizPage() {
             className="mt-2 p-1 bg-blue-500 text-white rounded"
             onClick={() => handleShowSolution(reviewQuestionIndex)}
           >
-            {showSolution === reviewQuestionIndex ? "Ẩn lời giải" : "Xem lời giải"}
+            {showSolution === reviewQuestionIndex ? "Hide Solution" : "Show Solution"}
           </button>
           
           {showSolution === reviewQuestionIndex && (
             <div className="mt-4 p-2 border rounded bg-gray-100">
-              <h4 className="font-semibold">Lời giải:</h4>
+              <h4 className="font-semibold">Solution:</h4>
               <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
                 {question.solution}
               </ReactMarkdown>
@@ -796,7 +796,7 @@ export function QuizPage() {
               onClick={handlePreviousReview} 
               disabled={reviewQuestionIndex === 0}
             >
-              Bài trước
+              Previous Question
             </button>
             <span className="p-2">
               {reviewQuestionIndex + 1} / {quizData.length}
@@ -806,7 +806,7 @@ export function QuizPage() {
               onClick={handleNextReview}
               disabled={reviewQuestionIndex === quizData.length - 1}
             >
-              Bài sau
+              Next Question
             </button>
           </div>
         </div>
@@ -821,10 +821,10 @@ export function QuizPage() {
     if (loadingFeedback) {
       return (
         <div className="mt-4 p-4 border rounded bg-blue-50">
-          <h3 className="text-xl font-bold mb-2">Nhận xét về bài làm</h3>
+          <h3 className="text-xl font-bold mb-2">Loading Feedback...</h3>
           <div className="flex flex-col items-center justify-center p-4">
             <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p className="text-center">Đang phân tích bài làm của bạn... Quá trình này có thể mất vài giây, vui lòng đợi.</p>
+            <p className="text-center">The system is analyzing your answers. This may take a few seconds, please wait.</p>
             
             {/* Skeleton loaders cho phần nội dung nhận xét */}
             <div className="w-full space-y-2 mt-4">
@@ -840,7 +840,7 @@ export function QuizPage() {
     if (feedback) {
       return (
         <div className="mt-4 p-4 border rounded bg-blue-50">
-          <h3 className="text-xl font-bold mb-2">Nhận xét về bài làm</h3>
+          <h3 className="text-xl font-bold mb-2">Feedback on the Quiz</h3>
           <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
             {feedback}
           </ReactMarkdown>
@@ -862,9 +862,9 @@ export function QuizPage() {
         {loadingFeedback ? (
           <>
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-            <span>Đang tải...</span>
+            <span>Loading...</span>
           </>
-        ) : (showFeedback ? "Ẩn nhận xét" : "Nhận xét")}
+        ) : (showFeedback ? "Hide Feedback" : "Get Feedback")}
       </button>
     );
   };
@@ -872,9 +872,9 @@ export function QuizPage() {
   if (loading) return (
     <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
       <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-      <h2 className="text-xl font-semibold text-gray-700 mb-2">Đang tải câu hỏi...</h2>
+      <h2 className="text-xl font-semibold text-gray-700 mb-2">Loading questions...</h2>
       <p className="text-gray-500 text-center max-w-md">
-        Hệ thống đang chuẩn bị bài kiểm tra phù hợp với trình độ của bạn. Vui lòng đợi trong giây lát.
+        The system is preparing a quiz suitable for your level. Please wait for a moment.
       </p>
       
       <div className="mt-8 w-full max-w-md space-y-3">
@@ -934,37 +934,37 @@ export function QuizPage() {
             
             <div className="space-y-4 text-center">
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                <p className="text-lg font-medium mb-3">Bài kiểm tra gồm {quizData.length} câu hỏi</p>
+                <p className="text-lg font-medium mb-3">Quiz consists of {quizData.length} questions</p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="flex flex-col items-center bg-green-100 text-green-700 p-3 rounded-lg">
                     <div className="flex items-center mb-1">
                       <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                      <span className="font-medium">Dễ</span>
+                      <span className="font-medium">Easy</span>
                     </div>
-                    <span className="text-lg font-bold">{easyQuestions} câu</span>
+                    <span className="text-lg font-bold">{easyQuestions} questions</span>
                   </div>
                   
                   <div className="flex flex-col items-center bg-yellow-100 text-yellow-700 p-3 rounded-lg">
                     <div className="flex items-center mb-1">
                       <span className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
-                      <span className="font-medium">Trung bình</span>
+                      <span className="font-medium">Medium</span>
                     </div>
-                    <span className="text-lg font-bold">{mediumQuestions} câu</span>
+                    <span className="text-lg font-bold">{mediumQuestions} questions</span>
                   </div>
                   
                   <div className="flex flex-col items-center bg-red-100 text-red-700 p-3 rounded-lg">
                     <div className="flex items-center mb-1">
                       <span className="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
-                      <span className="font-medium">Khó</span>
+                      <span className="font-medium">Hard</span>
                     </div>
-                    <span className="text-lg font-bold">{hardQuestions} câu</span>
+                    <span className="text-lg font-bold">{hardQuestions} questions</span>
                   </div>
                 </div>
               </div>
               
               <div className="p-3 border border-gray-200 rounded-lg">
-                <p className="text-gray-600">Ấn nút Bắt đầu khi bạn đã sẵn sàng. Đồng hồ sẽ bắt đầu tính giờ.</p>
+                <p className="text-gray-600">Click the Start button when you're ready. The timer will start counting down.</p>
               </div>
               
               <button 
@@ -976,7 +976,7 @@ export function QuizPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Bắt đầu làm bài
+                  Start Quiz
                 </div>
               </button>
             </div>
@@ -1003,16 +1003,16 @@ export function QuizPage() {
     let resultColor = "";
     
     if (percentageCorrect >= 90) {
-      resultMessage = "Xuất sắc!";
+      resultMessage = "Excellent!";
       resultColor = "text-green-600";
     } else if (percentageCorrect >= 70) {
-      resultMessage = "Rất tốt!";
+      resultMessage = "Very Good!";
       resultColor = "text-green-500";
     } else if (percentageCorrect >= 50) {
-      resultMessage = "Khá tốt!";
+      resultMessage = "Good Job!";
       resultColor = "text-yellow-500";
     } else {
-      resultMessage = "Cần cố gắng thêm!";
+      resultMessage = "Keep Practicing!";
       resultColor = "text-red-500";
     }
     
@@ -1020,7 +1020,7 @@ export function QuizPage() {
       <div className="p-6">
         <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 text-white text-center">
-            <h2 className="text-3xl font-bold mb-2">Kết quả bài kiểm tra</h2>
+            <h2 className="text-3xl font-bold mb-2">Quiz Results</h2>
             <p className="text-lg opacity-90">{topic}</p>
           </div>
           
@@ -1053,26 +1053,26 @@ export function QuizPage() {
               
               {/* Thống kê câu trả lời */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold mb-3 text-gray-700">Thống kê chi tiết</h3>
+                <h3 className="text-lg font-semibold mb-3 text-gray-700">Detailed Statistics</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Số câu hỏi:</span>
+                    <span className="text-gray-600">Questions:</span>
                     <span className="font-bold">{quizData.length}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Số câu đúng:</span>
+                    <span className="text-gray-600">Correct answers:</span>
                     <span className="font-bold text-green-600">{correctCount}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Số câu sai:</span>
+                    <span className="text-gray-600">Wrong answers:</span>
                     <span className="font-bold text-red-600">{quizData.length - correctCount}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Số câu đã trả lời:</span>
+                    <span className="text-gray-600">Questions answered:</span>
                     <span className="font-bold">{answeredCount} / {quizData.length}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Thời gian làm bài:</span>
+                    <span className="text-gray-600">Time spent:</span>
                     <span className="font-bold">{formatTime(timer)}</span>
                   </div>
                 </div>
@@ -1088,14 +1088,14 @@ export function QuizPage() {
                 {loadingFeedback ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    <span>Đang tải...</span>
+                    <span>Loading...</span>
                   </>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-              Làm thêm
+              More Questions
                   </>
                 )}
             </button>
@@ -1108,7 +1108,7 @@ export function QuizPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-              {viewReview ? "Ẩn xem lại" : "Xem lại"}
+              {viewReview ? "Hide Review" : "Review"}
             </button>
             
             <button
@@ -1119,14 +1119,14 @@ export function QuizPage() {
                 {loadingFeedback ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    <span>Đang tải...</span>
+                    <span>Loading...</span>
                   </>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    {showFeedback ? "Ẩn nhận xét" : "Nhận xét"}
+                    {showFeedback ? "Hide Feedback" : "Feedback"}
                   </>
                 )}
             </button>
@@ -1143,15 +1143,15 @@ export function QuizPage() {
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <button className="p-2 bg-gray-500 text-white rounded" onClick={() => navigate(-1)}>Trở về</button>
+        <button className="p-2 bg-gray-500 text-white rounded" onClick={() => navigate(-1)}>Back</button>
         <div className="bg-blue-100 text-blue-800 py-2 px-4 rounded-full font-bold">
-          Thời gian: {formatTime(timer)}
+          Time: {formatTime(timer)}
         </div>
       </div>
       
       <div className="flex items-center mb-2">
         <h2 className="text-xl font-bold mr-3">
-        Câu {currentQuestion + 1}: 
+        Question {currentQuestion + 1}: 
         </h2>
         {quizData[currentQuestion].difficulty && (
           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -1184,13 +1184,13 @@ export function QuizPage() {
       </div>
       <div className="mt-4 flex justify-between">
         <button className="p-2 bg-gray-500 text-white rounded" onClick={handlePrevious} disabled={currentQuestion === 0}>
-          Câu trước
+          Previous Question
         </button>
         <button className="p-2 bg-red-500 text-white rounded" onClick={handleSubmit}>
-          Nộp bài
+          Submit Quiz
         </button>
         <button className="p-2 bg-blue-500 text-white rounded" onClick={handleNext}>
-          {currentQuestion < quizData.length - 1 ? "Câu sau" : "Hoàn thành"}
+          {currentQuestion < quizData.length - 1 ? "Next Question" : "Finish Quiz"}
         </button>
       </div>
     </div>

@@ -10,10 +10,10 @@ function UserManagementPage() {
   const [error, setError] = useState(null);
   const [expandedUser, setExpandedUser] = useState(null);
   
-  // Token lấy từ localStorage
+  // Token from localStorage
   const token = localStorage.getItem("token");
   
-  // Fetch danh sách người dùng khi component mount
+  // Fetch user list when component mounts
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -31,15 +31,15 @@ function UserManagementPage() {
       
       setUsers(response.data.users);
     } catch (err) {
-      console.error("Lỗi khi lấy danh sách người dùng:", err);
-      setError("Không thể lấy danh sách người dùng");
+      console.error("Error fetching user list:", err);
+      setError("Could not fetch user list");
     } finally {
       setLoading(false);
     }
   };
   
   const deleteUser = async (userId) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa người dùng này?")) {
+    if (!window.confirm("Are you sure you want to delete this user?")) {
       return;
     }
     
@@ -50,11 +50,11 @@ function UserManagementPage() {
         }
       });
       
-      // Refresh danh sách người dùng
+      // Refresh user list
       fetchUsers();
     } catch (err) {
-      console.error("Lỗi khi xóa người dùng:", err);
-      alert("Không thể xóa người dùng");
+      console.error("Error deleting user:", err);
+      alert("Could not delete user");
     }
   };
   
@@ -71,11 +71,11 @@ function UserManagementPage() {
         }
       );
       
-      // Refresh danh sách người dùng
+      // Refresh user list
       fetchUsers();
     } catch (err) {
-      console.error("Lỗi khi thay đổi quyền người dùng:", err);
-      alert("Không thể thay đổi quyền người dùng");
+      console.error("Error changing user role:", err);
+      alert("Could not change user role");
     }
   };
   
@@ -90,7 +90,7 @@ function UserManagementPage() {
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Quản lý người dùng</h1>
+        <h1 className="text-2xl font-bold">User Management</h1>
         <button 
           onClick={() => navigate("/admin")}
           className="p-2 rounded-full bg-gray-100 hover:bg-gray-200"
@@ -115,7 +115,7 @@ function UserManagementPage() {
       
       {!loading && !error && users.length === 0 && (
         <div className="bg-gray-100 rounded-lg p-6 text-center">
-          <p className="text-gray-500">Không có người dùng nào</p>
+          <p className="text-gray-500">No users found</p>
         </div>
       )}
       
@@ -140,7 +140,7 @@ function UserManagementPage() {
               </div>
               <div className="flex items-center">
                 <span className={`px-2 py-1 text-xs rounded-full ${user.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {user.role === 'admin' ? 'Admin' : 'Người dùng'}
+                  {user.role === 'admin' ? 'Admin' : 'User'}
                 </span>
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
@@ -161,7 +161,7 @@ function UserManagementPage() {
                     <p className="text-sm">{user._id}</p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Ngày tạo:</span>
+                    <span className="text-sm text-gray-600">Created on:</span>
                     <p className="text-sm">{new Date(user.created_at).toLocaleString()}</p>
                   </div>
                 </div>
@@ -175,13 +175,13 @@ function UserManagementPage() {
                     }`}
                     onClick={() => toggleAdminRole(user._id, user.role)}
                   >
-                    {user.role === "admin" ? "Hủy quyền admin" : "Cấp quyền admin"}
+                    {user.role === "admin" ? "Remove admin rights" : "Grant admin rights"}
                   </button>
                   <button 
                     className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded text-sm font-medium"
                     onClick={() => deleteUser(user._id)}
                   >
-                    Xóa người dùng
+                    Delete user
                   </button>
                 </div>
               </div>
