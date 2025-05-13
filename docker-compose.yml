@@ -10,6 +10,7 @@ services:
     restart: always
     environment:
       - GENMINI_API_KEY=AIzaSyAqX5bkYluS_QKYSILRVCJHvY6KpSy2-ds
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://math-ai.gem-corp.tech
     volumes:
       - api_rag_uploads:/app/uploads
       - ./Backend/documents:/app/documents
@@ -38,6 +39,7 @@ services:
       - JWT_SECRET_KEY=your_jwt_secret_key
       - JWT_ACCESS_TOKEN_EXPIRES=3600
       - API_RAG_URL=http://host.docker.internal:8000
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://math-ai.gem-corp.tech
     volumes:
       - backend_data:/app/data
       - chroma_data:/app/chroma_db  # ✅ dùng volume giống api_rag
@@ -56,8 +58,8 @@ services:
       - "3000:80"
     restart: always
     environment:
-      - VITE_API_URL=http://backend:5000
-      - VITE_RAG_API_URL=http://api_rag:8000
+      - VITE_API_URL=/api
+      - VITE_RAG_API_URL=/rag
     networks:
       - app-network
     depends_on:

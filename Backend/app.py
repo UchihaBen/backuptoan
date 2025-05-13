@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 # Cấu hình CORS đơn giản hơn và bao quát hơn
 CORS(app, 
-     origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],  # Cho phép tất cả origins trong development
+     origins=["http://localhost:3000", "http://127.0.0.1:3000", "https://math-ai.gem-corp.tech", "*"],  # Cho phép tất cả origins trong development
      supports_credentials=True,
      allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"])
 

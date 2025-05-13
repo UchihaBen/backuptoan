@@ -35,7 +35,7 @@ print("🚀 API_Rag đang khởi động...")
 # ✅ Thêm CORS Middleware để React frontend có thể gọi API mà không lỗi CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Hoặc thay "*" bằng ["http://localhost:3000"] nếu chỉ dùng nội bộ
+    allow_origins=["*", "https://math-ai.gem-corp.tech"],  # Hoặc thay "*" bằng ["http://localhost:3000"] nếu chỉ dùng nội bộ
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
