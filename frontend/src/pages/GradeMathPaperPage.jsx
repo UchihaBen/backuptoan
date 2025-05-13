@@ -75,7 +75,7 @@ function GradeMathPaperPage() {
 
       // Call API using fetch
       
-    //   const response = await fetch("http://127.0.0.1:8000/grade_math_paper", {
+    //   const response = await fetch("http://api_rag:8000/grade_math_paper", {
     //     method: "POST",
     //     headers: {
     //       "Content-Type": "application/json"

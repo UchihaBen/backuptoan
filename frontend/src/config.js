@@ -1,8 +1,8 @@
 // config.js - File cấu hình trung tâm cho các API URL
 
 // Đọc từ biến môi trường nếu có, nếu không sử dụng giá trị mặc định
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
-const RAG_API_URL = import.meta.env.VITE_RAG_API_URL || 'http://127.0.0.1:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://backend:8000';
+const RAG_API_URL = import.meta.env.VITE_RAG_API_URL || 'http://api_rag:8000';
 
 // Xuất các biến để sử dụng trong toàn bộ ứng dụng
 export const config = {

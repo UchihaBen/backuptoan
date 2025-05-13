@@ -10,11 +10,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://math-ai.gem-corp.tech:5000',
         changeOrigin: true,
       },
       '/rag': {
-        target: 'http://localhost:8000',
+        target: 'http://math-ai.gem-corp.tech:8000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/rag/, '')
       }

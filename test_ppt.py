@@ -3,7 +3,7 @@ import json
 import os
 
 # Define the API endpoint
-api_url = "http://localhost:8000/generate_ppt"
+api_url = "http://api_rag:8000/generate_ppt"
 
 # Define a simple slide structure
 slides_data = [

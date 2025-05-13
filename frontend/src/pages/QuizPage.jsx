@@ -653,7 +653,7 @@ export function QuizPage() {
       
       // Gọi API Adaptive_Questions với context là bài làm cũ
       const quizRes = await axios.post(
-        "http://127.0.0.1:8000/Adaptive_Questions",
+        "http://api_rag:8000/Adaptive_Questions",
         { 
           question: topic,
           previousPerformance: JSON.stringify(studentPerformance)
