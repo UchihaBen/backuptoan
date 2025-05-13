@@ -23,6 +23,7 @@ import openpyxl.styles
 from fastapi.staticfiles import StaticFiles
 from chromadb import PersistentClient
 from chromadb.config import Settings
+from model_manager import get_model_instance  # Import model manager
 
 # 🔐 Đặt API key của Gemini từ biến môi trường thay vì hardcode (bảo mật hơn)
 GENMINI_API_KEY = "AIzaSyAqX5bkYluS_QKYSILRVCJHvY6KpSy2-ds"
@@ -55,7 +56,10 @@ app.mount("/static", StaticFiles(directory=UPLOAD_FOLDER), name="static")
 
 # ✅ Kiểm tra model có tải thành công không
 try:
-    sentence_ef = SentenceTransformer(MODEL_NAME)
+    # Sử dụng model_manager để tải model từ cache nếu có hoặc tải từ Hugging Face
+    print("🔄 Đang tải model E5 (có thể từ cache)...")
+    sentence_ef = get_model_instance()
+    print("✅ Đã tải model E5 thành công")
 except Exception as e:
     print(f"⚠️ Lỗi khi tải model {MODEL_NAME}: {e}")
 

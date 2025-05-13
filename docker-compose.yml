@@ -14,6 +14,7 @@ services:
       - api_rag_uploads:/app/uploads
       - ./Backend/documents:/app/documents
       - chroma_data:/app/chroma_db  # ✅ dùng volume thay vì thư mục local
+      - model_cache:/app/model_cache  # ✅ lưu model cache vào volume
     networks:
       - app-network
     extra_hosts:
@@ -41,6 +42,7 @@ services:
     volumes:
       - backend_data:/app/data
       - chroma_data:/app/chroma_db  # ✅ dùng volume giống api_rag
+      - model_cache:/app/model_cache  # ✅ lưu model cache vào volume
     networks:
       - app-network
     depends_on:
@@ -74,3 +76,4 @@ volumes:
   backend_data:
   api_rag_uploads:
   chroma_data:  
+  model_cache:  # ✅ volume mới cho model cache

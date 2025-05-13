@@ -3,6 +3,7 @@ import chromadb
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
 from PIL import Image as PILImage
+from model_manager import get_model_instance  # Import model manager
 
 
 GENMINI_API_KEY = "AIzaSyCkouU85gLzz8utrcOzz8MwsJ3Pgqqfuqc"
@@ -14,7 +15,8 @@ DB_PATH = os.path.join(BASE_DIR, "chroma_db")
 
 
 MODEL_NAME = "intfloat/multilingual-e5-base"
-sentence_ef = SentenceTransformer(MODEL_NAME)
+# Sử dụng model_manager để tải model từ cache
+sentence_ef = get_model_instance()
 chroma_client = chromadb.PersistentClient(path=DB_PATH)
 collection = chroma_client.get_or_create_collection(name="my_collection")
 

@@ -5,6 +5,7 @@ from mongoDB.config import chunks_collection
 from bson import ObjectId
 import logging
 import time
+from model_manager import get_model_instance  # Import model manager
 
 # Thiết lập logging
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +17,8 @@ DB_PATH = os.path.join(BASE_DIR, "chroma_db")
 MODEL_NAME = "intfloat/multilingual-e5-base"
 
 # Khởi tạo model và ChromaDB
-sentence_transformer = SentenceTransformer(MODEL_NAME)
+# Sử dụng model_manager để tải model từ cache
+sentence_transformer = get_model_instance()
 chroma_client = chromadb.PersistentClient(path=DB_PATH)
 collection = chroma_client.get_or_create_collection(name="my_collection")
 
